@@ -16,7 +16,8 @@ each other. Edit `data.json`; never hand-edit generated files.
   "overview": [ { "heading": "...", "text": "..." } ],
   "items": [ { ... } ],
   "clusters": [ { "name": "...", "summary": "...", "ids": ["..."] } ],
-  "practical": [ { "heading": "...", "items": ["..."] } ]
+  "practical": [ { "heading": "...", "items": ["..."] } ],
+  "rejected": [ { "name": "...", "reason": "...", "date": "YYYY-MM-DD" } ]
 }
 ```
 
@@ -151,6 +152,19 @@ items (see SKILL.md).
 
 `label` is shown both on the toggle and as the tag on each item, so make it a
 short noun phrase. 2–6 lenses is the sweet spot.
+
+## `rejected[]`: things considered and turned down
+
+```json
+"rejected": [
+  { "name": "Sky100", "local_name": "天際100", "reason": "Same harbour view as the free TST promenade; HK$200+.", "date": "2026-10-12", "source": "user" }
+]
+```
+
+This is a memory of decisions, so that the same suggestion isn't re-researched or re-added
+by a later refresh. `source` is `user` (the user said no) or `research` (dropped
+during research, e.g. permanently closed). It isn't shown in the report.
+`scripts/find.py` searches it.
 
 ## IDs
 

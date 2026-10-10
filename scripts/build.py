@@ -141,6 +141,10 @@ def validate(data):
         if it.get("kind") in MAPPABLE_KINDS and not it.get("address") and "lat" not in it:
             warnings.append("%s: mappable kind but no address or coordinates" % label)
 
+    for n, r in enumerate(data.get("rejected") or []):
+        if not r.get("name") or not r.get("reason"):
+            errors.append("rejected[%d]: needs name and reason" % n)
+
     lens_ids = set()
     for n, lens in enumerate(data.get("lenses") or []):
         if not lens.get("id") or not lens.get("label"):

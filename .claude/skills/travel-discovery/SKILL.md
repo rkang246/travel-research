@@ -1,6 +1,6 @@
 ---
 name: travel-discovery
-description: In-depth destination research that builds a large, filterable discovery catalog for a trip covering signature foods, restaurants, local brands and products, neighborhoods, shopping, photo spots, landmarks, experiences, nature, cafés and nightlife, events on the exact travel dates, and day trips, including places trending on Instagram, TikTok, and RedNote. It saves everything to the travel-discovery repo as data.json, a destination-themed HTML field guide with a map and shortlist, and Google My Maps CSVs. Use this whenever the user names a destination they're visiting (with or without dates) and wants to know what to eat, see, buy, photograph, or do there, asks to "research" a city or trip, or wants a travel brainstorm, field guide, or map of places, even if they never say "discovery". Not for day-by-day itineraries or route optimization from an existing shortlist; that's a separate later phase.
+description: In-depth destination research that builds a large, filterable discovery catalog for a trip covering signature foods, restaurants, local brands and products, neighborhoods, shopping, photo spots, landmarks, experiences, nature, cafés and nightlife, events on the exact travel dates, and day trips, including places trending on Instagram, TikTok, and RedNote. It saves everything to the travel-discovery repo as data.json, a destination-themed HTML field guide with a map and shortlist, and Google My Maps CSVs. Use this whenever the user names a destination they're visiting (with or without dates) and wants to know what to eat, see, buy, photograph, or do there, asks to "research" a city or trip, or wants a travel brainstorm, field guide, or map of places, even if they never say "discovery". Also use it when the user follows up about a trip that has already been researched with a place, dish, shop, or event they heard about ("is X in my Tokyo list?", "a friend recommended Y", "saw Z on TikTok"), to check whether it's already covered and evaluate adding it. Not for day-by-day itineraries or route optimization from an existing shortlist; that's a separate later phase.
 argument-hint: <destination> <arrive> <depart> [notes on base, interests, budget, pace]
 ---
 
@@ -145,6 +145,9 @@ Combine `work/*.json` into `data.json`:
 - **Cross-link**: every `where` ID on a dish or product must exist. Fix
   dangling links or turn them into `where_note`.
 - **Normalize** neighborhood spellings and subcategory labels.
+- **Respect earlier decisions**: on a refresh, drop anything that matches the
+  trip's `rejected` list (check with `scripts/find.py`), unless its situation has
+  clearly changed. In that case flag it to the user rather than silently re-adding it.
 - **Balance**: scan for gaps (a category with only famous names, no local-language
   finds, everything in two neighborhoods) and do targeted extra research.
 
@@ -193,6 +196,49 @@ unless the user says so, because pushing publishes to GitHub. Then tell the user
 - how to shortlist: tap ★ on items in the report. **Copy shortlist** gives
   readable text for a trip sheet. **Export** downloads `selections.json`, which
   goes in `trips/<slug>/` for the itinerary phase.
+
+## Ad hoc additions (follow-ups after the research)
+
+After the main research the user will often bring individual tips: "a friend
+said to try X", "is Y on my list?", "saw this café on TikTok". The goal is to
+check, then **evaluate together**. Don't add anything until the user agrees.
+
+1. **Find the trip.** Use the folder under `trips/` that matches the destination.
+   If more than one could match, ask which one.
+2. **Check what's already there:**
+   ```bash
+   python3 scripts/find.py trips/<slug> "<name>" "<local-script name>" "<alternate spelling>"
+   ```
+   Pass every variant you know of, including the local-script name, romanization, and
+   the English name. The script reports matches, near matches, items that only
+   *mention* it (e.g. a bakery named in a dish's "find it" note), and earlier
+   rejections.
+   - **Already in:** show the user the entry (category, tier, status, the
+     key line of `why`) and stop there unless something looks stale. If its
+     verification is old or its status is shaky, offer to re-check it.
+   - **Only mentioned, or rejected before:** say so, quote the earlier reason, and ask
+     whether they want to reconsider.
+3. **If it's new, research it the same way** as the main pass, but just this one
+   thing: confirm it exists and is operating (an independent source, not only
+   the social post it came from), what it is, why it's distinctive here,
+   cost, booking, hours or seasonality against the trip dates, and its location.
+4. **Present an evaluation and wait.** Keep it short:
+   - what it is and the local connection
+   - status and anything time-sensitive for these dates
+   - **how it compares to what's already in the catalog**: the 1–3 closest items
+     (same subcategory or neighborhood), and whether it adds something they
+     don't or overlaps
+   - proposed category, subcategory, tier, lenses, and region/neighborhood
+   - your recommendation (add, add as niche, or skip) with a one-line reason
+   When the user sends several tips at once, give a compact table with one row per tip.
+5. **Apply the decision:**
+   - **Add:** append a full record to `data.json` with a new ID. Don't touch
+     existing IDs. If research shows it's the same as an existing item under
+     another name, merge into that item instead (add the alternate name to
+     `local_name` or `details`). Add it to a matching `clusters` entry if one fits,
+     run `build.py`, and commit.
+   - **Skip:** add it to `rejected` with the reason and today's date (and
+     `local_name` if known), then commit, so it isn't proposed again.
 
 ## Social & trending research
 

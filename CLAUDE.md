@@ -15,6 +15,9 @@ Destination research catalogs, one folder per trip under `trips/`.
   `__DATA__` / `__TITLE__` placeholders. Changing it changes every trip on the next build.
 - **Item IDs are stable keys.** Users' shortlists (`selections.json`) reference
   them, so when refreshing a trip keep existing IDs for items that persist.
+- **Ad hoc additions:** `python3 scripts/find.py trips/<slug> "<name>" ...` checks
+  whether something is already in the research (or was rejected). Evaluate it
+  with the user before adding anything. See *Ad hoc additions* in the skill.
 - **Itinerary phase (separate):** reads `data.json` + `selections.json` from
   the trip folder. Discovery research should never prune items for schedule
   reasons.
