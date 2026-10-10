@@ -4,6 +4,10 @@ Destination research catalogs, one folder per trip under `trips/`.
 
 - **Run research:** the `travel-discovery` skill
   ([`.claude/skills/travel-discovery/SKILL.md`](.claude/skills/travel-discovery/SKILL.md)).
+- **Research pipeline:** `travel-researcher` agents (Sonnet, `.claude/agents/`) append
+  JSONL to `trips/<slug>/work/`. `python3 scripts/merge.py trips/<slug> [--list]`
+  dedupes and assembles `data.json`, so the orchestrating model reads summaries rather than
+  raw research.
 - **Source of truth:** `trips/<slug>/data.json`. Its schema is in
   [`references/schema.md`](.claude/skills/travel-discovery/references/schema.md).
   `index.html`, `locations.csv`, `locations.kml`, and `mymaps/` are generated, so never

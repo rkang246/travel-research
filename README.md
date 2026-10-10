@@ -32,6 +32,21 @@ Only the destination and dates are required. Anything else is assumed and listed
 under *Assumptions* in the report. The skill lives in
 [`.claude/skills/travel-discovery/`](.claude/skills/travel-discovery/SKILL.md).
 
+## How a run uses the models
+
+| Stage | Who |
+|---|---|
+| Orientation, gap review, synthesis, theme | your session model (e.g. Opus) |
+| Category research, gap-fill, verification | 4 + 1 `travel-researcher` agents, pinned to **Sonnet** ([definition](.claude/agents/travel-researcher.md)), which can't spawn further agents |
+| Merging, dedupe, validation, rendering | `scripts/merge.py`, `scripts/build.py` (no model) |
+
+Research results go to files, so the session model only reads compact summaries.
+To make a run cheaper still, start it from a Sonnet session. The skill and
+agents work the same way, with somewhat less judgment in planning and synthesis.
+
+The agent definition is also linked from `~/.claude/agents/` (like the skill
+from `~/.claude/skills/`), so it works when Claude Code is opened in other folders.
+
 ## Layout
 
 ```
@@ -42,7 +57,9 @@ trips/<YYYY-MM>-<city>/
   locations.kml    pinned locations, foldered by category
   mymaps/*.csv     one file per Google My Maps layer
   selections.json  (you add this) your exported shortlist
+scripts/merge.py   assembles data.json from research work files (dedupe, patches)
 scripts/build.py   regenerates everything from data.json
+scripts/find.py    "is this already in my research?" lookup
 ```
 
 Rebuild after editing a trip's data:

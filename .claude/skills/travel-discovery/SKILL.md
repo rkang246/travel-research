@@ -33,19 +33,21 @@ Repo: `/Users/robertkang/Desktop/Code/travel-discovery` (GitHub: `rkang246/trave
 
 ```
 trips/<YYYY-MM>-<city-slug>/        e.g. trips/2026-11-tokyo/
-  data.json        ← the ONLY file you write by hand (schema: references/schema.md)
+  data.json        ← source of truth (schema: references/schema.md), assembled by
+                     scripts/merge.py during research, edited directly afterwards
   index.html       ← generated field guide (list, map, neighborhoods, table, practical)
   locations.csv    ← generated master location database
   locations.kml    ← generated, for Google Earth / My Maps
   mymaps/*.csv     ← generated, one CSV per My Maps layer (≤10 layers)
-  work/            ← scratch output from research agents (gitignored)
+  work/            ← research scratch (gitignored): orientation.md, synthesis.json,
+                     agents' *.jsonl, *.patch.jsonl
 ```
 
-`scripts/build.py` generates everything else from `data.json` and refreshes the
-repo's root `index.html` and README trip list. Because the catalog, master
-database, map, and neighborhood view are all rendered from the same records,
-items are deduplicated by construction: a place that's both a photo spot and a
-café is **one** record with `categories: ["photography", "nightlife"]`.
+`scripts/build.py` generates the report and exports from `data.json` and
+refreshes the repo's root `index.html` and README trip list. Because the list,
+master database, map, and neighborhood view are all rendered from the same
+records, items are deduplicated by construction: a place that's both a photo
+spot and a café is **one** record with `categories: ["photography", "nightlife"]`.
 
 ## Research principles
 
@@ -82,23 +84,50 @@ café is **one** record with `categories: ["photography", "nightlife"]`.
 
 ## Workflow
 
+### Who does what
+
+Full coverage means ~200–300 researched items and hundreds of searches. That
+volume shouldn't run on the most expensive model, and it shouldn't pass through
+your context. Split the work by what each stage needs:
+
+| Stage | Who | Why |
+|---|---|---|
+| Orientation, review, synthesis | **you** (session model) | Judgment: what matters here, what's missing, how to present it |
+| Category research, gap-fill, verification | **`travel-researcher` agents** (Sonnet, defined in `.claude/agents/travel-researcher.md`) | Volume: searching and reading pages |
+| Merge, dedupe, validation, rendering | **scripts** (`merge.py`, `build.py`) | Mechanical: exact, repeatable, free |
+
+Cost rules. These matter: an unconstrained run can exhaust a session's usage
+limit before one city is done.
+- Spawn research **only** as `subagent_type: "travel-researcher"`, and also pass
+  `model: "sonnet"` on the call, so the worker can't inherit your model.
+  Don't use general-purpose agents for research, and don't do the bulk
+  category research yourself.
+- **At most 5 agent runs per trip:** 4 category agents, then 1 follow-up agent.
+- **Don't read work files or the full `data.json`.** Your view of the research is
+  `merge.py`'s summary and `--list` output (one line per item). When a decision
+  needs detail, grep or `find.py` the specific records.
+- Write your own contributions (meta, theme, lenses, overview, clusters,
+  category_info, practical, coverage) to `work/synthesis.json`, and fix records
+  through patch files. `merge.py` assembles `data.json`, so you never rewrite it.
+
 ### 1. Set up
-Create `trips/<YYYY-MM>-<city-slug>/` (month of arrival). If it already exists,
-you're refreshing an earlier trip, so read the existing `data.json` and
-**keep its IDs** for items that persist, because the user's shortlist refers to them.
+Create `trips/<YYYY-MM>-<city-slug>/work/` (month of arrival). On a refresh,
+`merge.py` folds the existing `data.json` in first, so IDs that persist are kept
+automatically. If `work/` still holds files from an earlier run, move them into
+`work/archive-<date>/` first.
 
-### 2. Orientation pass (do this yourself)
-Spend a few searches building context that every later step needs: what the
-destination is known for, its food identity, main neighborhoods and their
-character, design and shopping culture, local language and script, public
-holidays and seasonal conditions for the dates, sunrise and sunset times, and
-the best local-language publications and event calendars, and **which social
-platforms locals and regional travelers actually use** there (see below). Write
-these notes to `work/orientation.md`. They brief the research agents.
+### 2. Orientation (you, ~10–15 searches)
+Build the context every later step needs:
+- what the destination is known for, its food identity, and its main neighborhoods and their character
+- design and shopping culture
+- local language and script
+- public holidays and seasonal conditions for the dates, and sunrise and sunset times
+- the best local-language publications and event calendars
+- **which social platforms locals and regional travelers actually use** (see *Social & trending research*)
 
-Also decide the things every agent must use consistently, and put them in
-`orientation.md`:
-- **Regions**: 3–6 coarse areas a visitor thinks in (`meta.regions`).
+Then decide what every agent must use consistently:
+- **Regions**: 3–6 coarse areas a visitor thinks in (`meta.regions`), plus
+  canonical spellings for the main neighborhoods.
 - **Lenses**: 2–6 cross-category interest toggles drawn from the traveler's
   interests and the city's personality (e.g. `retro`, `design`, `rainy-day`),
   plus `trending`.
@@ -108,56 +137,77 @@ Also decide the things every agent must use consistently, and put them in
   MTR-map look, with line colours, station-sign headers, and 香港清單 as its title, is
   the bar to meet. A generic palette is a missed opportunity.
 
-### 3. Category research (fan out)
-Full coverage is ~200–300 researched items, too much for one context to do
-well. If you have a subagent tool, run these **six groups in parallel**, one
-agent each:
+Write the notes, regions, lenses, neighborhood spellings, and per-group source
+tips to `work/orientation.md`. Write `meta`, `lenses`, `theme`, and the first
+pass of `category_info` to `work/synthesis.json`.
 
-| Group | Categories |
+### 3. Research: 4 `travel-researcher` agents in parallel
+
+| Brief | Categories | Output file |
+|---|---|---|
+| eat-drink | `food`, `restaurants`, `nightlife` | `work/eat-drink.jsonl` |
+| shop-walk | `products`, `shopping`, `neighborhoods` | `work/shop-walk.jsonl` |
+| see-shoot | `attractions`, `photography`, `nature` | `work/see-shoot.jsonl` |
+| do-go | `experiences`, `events`, `daytrips` | `work/do-go.jsonl` |
+
+Keep each brief compact: point to files by **absolute path** instead of pasting
+them. Include:
+- destination, dates, slug, traveler profile and assumptions
+- the paths to `work/orientation.md`, `references/categories.md` (name the
+  sections), `references/schema.md`, and this SKILL.md (sections *Research
+  principles*, *Social & trending research*, *Quality standards*)
+- the absolute output path
+- any group-specific tips from orientation (sources, platforms, seasonal angles)
+
+The agent definition already covers search budgets, batch appending,
+validation, and the short reply.
+
+If an agent stops early at its turn limit, its records are already on disk.
+Leave the gaps for the follow-up pass rather than resuming it.
+
+Without a subagent tool, research the same groups yourself, one at a time,
+appending to the same files.
+
+### 4. Merge and review (you)
+```bash
+python3 scripts/merge.py trips/<slug> --list
+```
+The script dedupes across agents (same place found twice becomes one record with both
+categories), applies patches, drops anything on the `rejected` list, validates,
+and prints coverage against targets plus one line per item. Review that output
+for:
+- **Gaps**: categories below target; few local-language, regional, or niche finds;
+  everything clustered in two neighborhoods; thin `trending` coverage.
+- **Problems**: possible duplicates it didn't merge, dangling `where` links,
+  inconsistent neighborhood names, a wrong primary category.
+- **Risk** (what needs verification): `iconic` items, `booking: required`,
+  events, `possibly-closed` / `unconfirmed`, and social-only finds.
+
+Fix problems that need no research with your own patch file
+(`work/orchestrator.patch.jsonl`, one `{"id": ..., <fields>}` per line).
+
+### 5. One follow-up agent: gap-fill and verification
+Spawn one more `travel-researcher` (Sonnet) with two concrete lists:
+- **Gaps → `work/gapfill.jsonl`**: specific asks, such as "8 more photography spots,
+  especially night and neon", "3 local-language dessert finds", or "nature in the New
+  Territories".
+- **Checks → `work/verify.patch.jsonl`**: item IDs, each with what to check.
+
+Verify in proportion to risk, not uniformly:
+
+| Finding | Treatment |
 |---|---|
-| eat | `food`, `restaurants` |
-| buy | `products`, `shopping` |
-| walk-and-see | `neighborhoods`, `photography` |
-| culture | `attractions`, `experiences` |
-| outdoors | `nature`, `daytrips` |
-| social-and-dated | `nightlife`, `events` |
+| Famous landmark with reliable sources | No extra check |
+| Established local restaurant with good sources | No extra check |
+| Obscure place with thin evidence, or social-only | Confirm it exists and is open |
+| Event on the trip dates | Confirm on the official schedule |
+| Conflicting hours, status, or booking info | Resolve with the official source |
+| Product with uncertain local origin | Confirm provenance before claiming it |
 
-Brief each agent with: destination, dates, traveler profile and assumptions,
-the path to `work/orientation.md` (including the regions, lenses, and social
-platforms chosen there), its sections of `references/categories.md`,
-`references/schema.md`, the research principles above, the *Social & trending
-research* section, and the quality standards below. Tell it to write a JSON array of items
-to `trips/<slug>/work/<group>.json` and reply with only a short summary
-(counts, gaps, anything surprising). It shouldn't return the items inline,
-because the file is the hand-off. Agents should use their own category prefixes
-for IDs, and when they need a venue outside their categories (for example, the
-eat agent needing the department-store food hall where a sweet is sold), add it
-with the right primary category anyway. You'll dedupe in the merge.
+Then re-run `merge.py`.
 
-Without subagents, work through the same groups one at a time, writing each
-group's file before moving on so that context stays manageable.
-
-### 4. Merge
-Combine `work/*.json` into `data.json`:
-- **Dedupe** records that are the same place (same name or address). Merge their
-  `categories` (keep the strongest-fit category first), union `sources`, and keep
-  the richer text.
-- **Cross-link**: every `where` ID on a dish or product must exist. Fix
-  dangling links or turn them into `where_note`.
-- **Normalize** neighborhood spellings and subcategory labels.
-- **Respect earlier decisions**: on a refresh, drop anything that matches the
-  trip's `rejected` list (check with `scripts/find.py`), unless its situation has
-  clearly changed. In that case flag it to the user rather than silently re-adding it.
-- **Balance**: scan for gaps (a category with only famous names, no local-language
-  finds, everything in two neighborhoods) and do targeted extra research.
-
-### 5. Verification pass
-Prioritize checks where being wrong costs the user the most: anything
-`iconic`, everything with `booking: required`, all `events`, and anything you
-saw closure, move, or renovation hints for. Check official sites and recent
-sources, and update `status`, `verification`, and `seasonal`.
-
-### 6. Synthesis
+### 6. Synthesis (you)
+Add to `work/synthesis.json`, working from `--list` and targeted lookups:
 - `overview`: a short orientation covering what the place is known for, its
   defining food traditions, the most interesting neighborhoods, shopping and design
   culture, what makes it different, and the seasonal notes for these dates. Keep it
@@ -165,14 +215,15 @@ sources, and update `status`, `verification`, and `seasonal`.
 - `clusters`: geographic groupings for the neighborhood view (e.g. "Kuramae: two
   stationery shops, a coffee roaster, a riverside photo spot"). Only group
   things that really are near each other, and don't invent walking times.
-- `category_info`: for each category, a local-script `local` label, a short
-  `tagline`, and a `note` wherever there's category-wide context worth a
-  callout. Examples: a price key, famous places that recently closed (so
-  the user stops looking for them), how trailheads are reached, seasonal
-  caveats. Add a `label` override when the destination suggests a better name.
+- `category_info` notes: category-wide context worth a callout, such as a price key,
+  famous places that recently closed (so the user stops looking for them), how
+  trailheads are reached, or seasonal caveats. Add a `label` override when the destination
+  suggests a better name.
 - `practical`: transit, payment, holiday closures, weather, access notes. Lists of
   booking-required, unverified, and event items are derived automatically.
 - `meta.coverage`: disclose any category with thin or incomplete coverage.
+
+Re-run `merge.py` to fold it in.
 
 ### 7. Build and check
 ```bash
@@ -180,15 +231,17 @@ python3 scripts/build.py trips/<slug> --geocode
 ```
 `--geocode` fills missing coordinates through OpenStreetMap Nominatim (≈1
 request/sec, cached in `geocode-cache.json`) and writes them back to
-`data.json` with `coord_source: "nominatim"`. Read the build output: fix every
-**error**, review the warnings (missing sources, ungeocoded places, IDs that
-don't resolve), and rebuild. Spot-check a few geocoded pins that look out of
-place in the report's Map tab. Nominatim sometimes matches a same-named
-place elsewhere, so correct or delete those coordinates.
+`data.json` with `coord_source: "nominatim"`. Fix every **error** (through a patch
+file and `merge.py`, or by editing `synthesis.json`), review the warnings, and
+rebuild. Spot-check a few geocoded pins that look out of place in the report's Map tab.
+Nominatim sometimes matches a same-named place elsewhere, so correct or delete those coordinates.
 
-### 8. Commit and report
-Commit the trip folder and the regenerated root files locally. **Don't push**
-unless the user says so, because pushing publishes to GitHub. Then tell the user:
+### 8. Archive, commit, and report
+Move `work/*.json*` into `work/archive-<date>/`. From now on `data.json` is
+edited directly (ad hoc additions), and stale work files must not be merged over
+those edits. Commit the trip folder and the regenerated root files locally.
+**Don't push** unless the user says so, because pushing publishes to GitHub.
+Then tell the user:
 - item counts per category and any coverage gaps
 - the handful of most time-sensitive things (bookings to make now, events on their dates)
 - the local path to `index.html` and, once pushed, the Pages URL
