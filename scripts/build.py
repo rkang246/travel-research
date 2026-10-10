@@ -42,7 +42,6 @@ CATEGORIES = [
     ("daytrips", "Day Trips & Excursions"),
 ]
 CAT_KEYS = [c[0] for c in CATEGORIES]
-CAT_LABEL = dict(CATEGORIES)
 
 # Google My Maps allows at most 10 layers per map, so the 12 categories are
 # folded into 9 layer groups (by primary category).
@@ -70,6 +69,30 @@ REQUIRED_ITEM = ["id", "name", "kind", "categories", "description", "why", "tier
 MAPPABLE_KINDS = {"place", "area", "event", "daytrip"}
 ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+FONT_RE = re.compile(r"^[A-Za-z0-9 ]+$")
+GFONTS_RE = re.compile(r"^family=[A-Za-z0-9+:;@,.&=]+$")
+FONT_ROLES = {"display", "body", "local"}
+FONT_FALLBACK = {
+    "display": '"Arial Narrow", system-ui, sans-serif',
+    "body": 'system-ui, -apple-system, "Segoe UI", sans-serif',
+    "local": "system-ui, sans-serif",
+}
+
+
+def contrast_with_white(hex_color):
+    """WCAG contrast ratio of white text on hex_color."""
+    def channel(c):
+        c = c / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    lum = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    return 1.05 / (lum + 0.05)
+
+
+def category_labels(data):
+    info = data.get("category_info") or {}
+    return [(k, (info.get(k) or {}).get("label") or label) for k, label in CATEGORIES]
 
 
 # ---------------------------------------------------------------- validation
@@ -118,10 +141,39 @@ def validate(data):
         if it.get("kind") in MAPPABLE_KINDS and not it.get("address") and "lat" not in it:
             warnings.append("%s: mappable kind but no address or coordinates" % label)
 
+    lens_ids = set()
+    for n, lens in enumerate(data.get("lenses") or []):
+        if not lens.get("id") or not lens.get("label"):
+            errors.append("lenses[%d]: needs id and label" % n)
+        lens_ids.add(lens.get("id"))
     for it in items:
         for ref in it.get("where") or []:
             if ref not in ids:
                 errors.append("%s: where -> unknown id %r" % (it.get("id"), ref))
+        for lens in it.get("lenses") or []:
+            if lens not in lens_ids:
+                errors.append("%s: lens %r is not defined in top-level lenses" % (it.get("id"), lens))
+
+    for key in (data.get("category_info") or {}):
+        if key not in CAT_KEYS:
+            errors.append("category_info: unknown category %r" % key)
+    theme = data.get("theme") or {}
+    for field in ("colors", "colors_dark"):
+        for key, val in (theme.get(field) or {}).items():
+            if key not in CAT_KEYS and key != "accent":
+                errors.append("theme.%s: unknown key %r" % (field, key))
+            elif not HEX_RE.match(str(val)):
+                errors.append("theme.%s.%s: %r must be #rrggbb" % (field, key, val))
+            elif field == "colors" and key != "accent" and contrast_with_white(val) < 3:
+                warnings.append("theme.colors.%s %s: white sign text contrast %.1f:1 is below 3:1; darken it"
+                                % (key, val, contrast_with_white(val)))
+    for role, name in (theme.get("fonts") or {}).items():
+        if role not in FONT_ROLES:
+            errors.append("theme.fonts: unknown role %r (use display/body/local)" % role)
+        elif not FONT_RE.match(str(name)):
+            errors.append("theme.fonts.%s: %r is not a plain font family name" % (role, name))
+    if theme.get("google_fonts") and not GFONTS_RE.match(theme["google_fonts"]):
+        errors.append("theme.google_fonts must look like 'family=Barlow:wght@400;700&family=...'")
     for cl in data.get("clusters", []):
         for ref in cl.get("ids", []):
             if ref not in ids:
@@ -212,24 +264,25 @@ def sources_text(it):
 
 def write_locations_csv(data, trip_dir):
     meta = data["meta"]
+    labels = dict(category_labels(data))
     cols = ["ID", "Name", "Local name", "Kind", "Category", "Other categories", "Subcategory",
-            "Neighborhood", "Address", "Latitude", "Longitude", "Coord source", "Google Maps",
+            "Region", "Neighborhood", "Address", "Latitude", "Longitude", "Coord source", "Google Maps",
             "Website", "Description", "Why distinctive", "Tier", "Cost", "Duration", "Best time",
-            "Setting", "Booking", "Seasonal", "Dates", "Status", "Verification", "Sources"]
+            "Setting", "Booking", "Seasonal", "Dates", "Lenses", "Status", "Verification", "Sources"]
     rows = []
     for it in data["items"]:
         if not is_mappable(it):
             continue
         rows.append([
             it["id"], it["name"], it.get("local_name", ""), it["kind"],
-            CAT_LABEL[it["categories"][0]],
-            "; ".join(CAT_LABEL[c] for c in it["categories"][1:]),
-            it.get("subcategory", ""), it.get("neighborhood", ""), it.get("address", ""),
+            labels[it["categories"][0]],
+            "; ".join(labels[c] for c in it["categories"][1:]),
+            it.get("subcategory", ""), it.get("region", ""), it.get("neighborhood", ""), it.get("address", ""),
             it.get("lat", ""), it.get("lng", ""), it.get("coord_source", ""),
             maps_url(it, meta), it.get("website", ""), it["description"], it["why"],
             it["tier"], it.get("cost", ""), it.get("duration", ""), it.get("best_time", ""),
             it.get("setting", ""), it.get("booking", ""), it.get("seasonal", ""), fmt_dates(it),
-            it["status"], it.get("verification", ""), sources_text(it),
+            "; ".join(it.get("lenses") or []), it["status"], it.get("verification", ""), sources_text(it),
         ])
     with open(trip_dir / "locations.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -240,11 +293,12 @@ def write_locations_csv(data, trip_dir):
 
 def write_mymaps(data, trip_dir):
     meta = data["meta"]
+    labels = dict(category_labels(data))
     out_dir = trip_dir / "mymaps"
     out_dir.mkdir(exist_ok=True)
     for old in out_dir.glob("*.csv"):
         old.unlink()
-    cols = ["Name", "Location", "Latitude", "Longitude", "Category", "Tier", "Neighborhood",
+    cols = ["Name", "Location", "Latitude", "Longitude", "Category", "Tier", "Region", "Neighborhood",
             "Description", "Google Maps", "ID"]
     groups = {}
     for it in data["items"]:
@@ -263,10 +317,10 @@ def write_mymaps(data, trip_dir):
                 if it.get("why"):
                     desc += " Why: " + it["why"]
                 w.writerow([it["name"], location_query(it, meta), it.get("lat", ""), it.get("lng", ""),
-                            CAT_LABEL[it["categories"][0]], it["tier"], it.get("neighborhood", ""),
+                            labels[it["categories"][0]], it["tier"], it.get("region", ""), it.get("neighborhood", ""),
                             desc, maps_url(it, meta), it["id"]])
         counts[label] = len(members)
-    return counts
+    return counts, sorted(p.name for p in out_dir.glob("*.csv"))
 
 
 def write_kml(data, trip_dir):
@@ -302,20 +356,58 @@ def write_kml(data, trip_dir):
     return skipped
 
 
-def write_report(data, trip_dir):
+def theme_assets(data):
+    """Return (<link> tag for Google Fonts or "", CSS overriding the template's defaults)."""
+    theme = data.get("theme") or {}
+    link = ""
+    if theme.get("google_fonts"):
+        url = "https://fonts.googleapis.com/css2?%s&display=swap" % theme["google_fonts"]
+        link = ('<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+                '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+                '<link rel="stylesheet" href="%s">' % html.escape(url))
+    light = []
+    for role, name in (theme.get("fonts") or {}).items():
+        light.append('--f-%s: "%s", %s;' % (role, name, FONT_FALLBACK[role]))
+    for key, val in (theme.get("colors") or {}).items():
+        light.append("--%s: %s;" % ("accent" if key == "accent" else "c-" + key, val))
+    dark = ["--%s: %s;" % ("accent" if k == "accent" else "c-" + k, v) for k, v in (theme.get("colors_dark") or {}).items()]
+    css = ":root { %s }" % " ".join(light) if light else ""
+    if dark:
+        body = " ".join(dark)
+        css += ('\n@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { %s } }'
+                '\n:root[data-theme="dark"] { %s }' % (body, body))
+    return link, css
+
+
+def check_fonts(data):
+    theme = data.get("theme") or {}
+    if not theme.get("google_fonts"):
+        return
+    url = "https://fonts.googleapis.com/css2?%s&display=swap" % theme["google_fonts"]
+    try:
+        urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=10).close()
+    except Exception as exc:
+        print("warning: Google Fonts request failed (%s). Check family names and weights: %s" % (exc, url))
+
+
+def write_report(data, trip_dir, mymaps_files):
     meta = data["meta"]
     payload = dict(data)
+    payload.pop("theme", None)  # applied as CSS, not needed by the page script
     payload["items"] = []
     for it in data["items"]:
         it = dict(it)
         if is_mappable(it):
             it["maps_url"] = maps_url(it, meta)
         payload["items"].append(it)
-    payload["categories"] = CATEGORIES
+    payload["categories"] = category_labels(data)
+    payload["files"] = {"mymaps": mymaps_files}
     blob = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
     title = "%s Discovery Guide" % meta["destination"]
+    link, css = theme_assets(data)
     page = TEMPLATE.read_text(encoding="utf-8")
-    page = page.replace("__TITLE__", html.escape(title)).replace("__DATA__", blob)
+    page = (page.replace("__TITLE__", html.escape(title)).replace("__FONTS__", link)
+                .replace("__THEME_CSS__", css).replace("__DATA__", blob))
     (trip_dir / "index.html").write_text(page, encoding="utf-8")
 
 
@@ -333,6 +425,7 @@ def load_trips():
         trips.append({
             "dir": path.parent.name,
             "destination": m.get("destination", path.parent.name),
+            "local_title": m.get("local_title", ""),
             "country": m.get("country", ""),
             "arrive": m.get("arrive", ""),
             "depart": m.get("depart", ""),
@@ -364,8 +457,9 @@ def write_root_index(trips):
     # Root landing page for GitHub Pages
     e = html.escape
     cards = "\n".join(
-        '<a class="trip" href="trips/%s/"><h2>%s</h2><p>%s</p><p class="m">%s → %s · %d discoveries · researched %s</p></a>'
-        % (e(t["dir"]), e(t["destination"]), e(t["country"]), e(t["arrive"]), e(t["depart"]), t["count"], e(t["generated"]))
+        '<a class="trip" href="trips/%s/"><h2>%s%s</h2><p>%s</p><p class="m">%s → %s · %d discoveries · researched %s</p></a>'
+        % (e(t["dir"]), e(t["destination"]), (" <span class=\"m\">%s</span>" % e(t["local_title"])) if t["local_title"] else "",
+           e(t["country"]), e(t["arrive"]), e(t["depart"]), t["count"], e(t["generated"]))
         for t in trips) or '<p class="m">No trips yet.</p>'
     page = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -415,14 +509,15 @@ def main():
         if args.geocode and geocode(data, trip_dir):
             data_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-        write_report(data, trip_dir)
+        check_fonts(data)
         n_loc = write_locations_csv(data, trip_dir)
-        layers = write_mymaps(data, trip_dir)
+        layers, mymaps_files = write_mymaps(data, trip_dir)
+        write_report(data, trip_dir, mymaps_files)
         skipped = write_kml(data, trip_dir)
 
         items = data["items"]
         print("\n%s: %d items" % (data["meta"]["destination"], len(items)))
-        for key, label in CATEGORIES:
+        for key, label in category_labels(data):
             primary = sum(1 for i in items if i["categories"][0] == key)
             cross = sum(1 for i in items if key in i["categories"][1:])
             print("  %-28s %3d%s" % (label, primary, ("  (+%d cross-listed)" % cross) if cross else ""))

@@ -37,7 +37,7 @@ under *Assumptions* in the report. The skill lives in
 ```
 trips/<YYYY-MM>-<city>/
   data.json        source of truth (all research records)
-  index.html       field guide: Overview · Catalog · Map · Neighborhoods · Table · Practical
+  index.html       field guide: List · Map · Neighborhoods · Table · Practical
   locations.csv    master location database
   locations.kml    pinned locations, foldered by category
   mymaps/*.csv     one file per Google My Maps layer
@@ -78,8 +78,9 @@ base URL is set in [`site.json`](site.json).
 
 ## Shortlist → itinerary hand-off
 
-In a report, star (☆) the items you want, then click **Export shortlist**.
-Save the downloaded file as `trips/<slug>/selections.json`. It contains
+In a report, tap ★ on the items you want. **Copy shortlist** copies readable
+text, grouped by category with map links, for pasting into a trip sheet.
+**Export** downloads `selections.json`. Save it as `trips/<slug>/selections.json`. It contains
 the item IDs, which match `data.json`, so an itinerary step can read
 `data.json` and `selections.json` together and plan routes, opening hours, and
 travel time. Stars are saved in your browser per trip. IDs stay stable when a

@@ -1,6 +1,6 @@
 ---
 name: travel-discovery
-description: In-depth destination research that builds a large, filterable discovery catalog for a trip covering signature foods, restaurants, local brands and products, neighborhoods, shopping, photo spots, landmarks, experiences, nature, cafés and nightlife, events on the exact travel dates, and day trips. It saves everything to the travel-discovery repo as data.json, an HTML field guide with a map and shortlist, and Google My Maps CSVs. Use this whenever the user names a destination they're visiting (with or without dates) and wants to know what to eat, see, buy, photograph, or do there, asks to "research" a city or trip, or wants a travel brainstorm, field guide, or map of places, even if they never say "discovery". Not for day-by-day itineraries or route optimization from an existing shortlist; that's a separate later phase.
+description: In-depth destination research that builds a large, filterable discovery catalog for a trip covering signature foods, restaurants, local brands and products, neighborhoods, shopping, photo spots, landmarks, experiences, nature, cafés and nightlife, events on the exact travel dates, and day trips, including places trending on Instagram, TikTok, and RedNote. It saves everything to the travel-discovery repo as data.json, a destination-themed HTML field guide with a map and shortlist, and Google My Maps CSVs. Use this whenever the user names a destination they're visiting (with or without dates) and wants to know what to eat, see, buy, photograph, or do there, asks to "research" a city or trip, or wants a travel brainstorm, field guide, or map of places, even if they never say "discovery". Not for day-by-day itineraries or route optimization from an existing shortlist; that's a separate later phase.
 argument-hint: <destination> <arrive> <depart> [notes on base, interests, budget, pace]
 ---
 
@@ -34,7 +34,7 @@ Repo: `/Users/robertkang/Desktop/Code/travel-discovery` (GitHub: `rkang246/trave
 ```
 trips/<YYYY-MM>-<city-slug>/        e.g. trips/2026-11-tokyo/
   data.json        ← the ONLY file you write by hand (schema: references/schema.md)
-  index.html       ← generated field guide (catalog, map, neighborhoods, table, practical)
+  index.html       ← generated field guide (list, map, neighborhoods, table, practical)
   locations.csv    ← generated master location database
   locations.kml    ← generated, for Google Earth / My Maps
   mymaps/*.csv     ← generated, one CSV per My Maps layer (≤10 layers)
@@ -67,16 +67,18 @@ café is **one** record with `categories: ["photography", "nightlife"]`.
    blogs and forums, official business sites and event calendars, and map
    listings. Corroborate the strongest recommendations independently. Don't lean
    on generic listicles that all repeat each other. Separate verified facts from
-   reputation, and paraphrase sources rather than copying review text.
+   reputation, and paraphrase sources rather than copying review text. Include
+   **social and trending signals** too (see *Social & trending research*), since
+   they surface new and visually striking places long before guidebooks do.
 4. **Current and date-aware.** Use the actual dates to check seasonal foods,
    weather-dependent experiences, events, public holidays and closures, places
    that closed or moved, seasonal hours, renovations, and required
    reservations, tickets, or permits. Record what you confirmed and what you
    didn't in each item's `status` and `verification`.
 5. **No premature itinerary.** No "Day 1 / Day 2". Make everything filterable
-   instead, through the item fields (category, subcategory, neighborhood, tier,
-   cost, duration, setting, booking, seasonal), which the report turns into
-   filters.
+   instead, through the item fields (category, subcategory, region,
+   neighborhood, lenses, tier, cost, duration, setting, booking, seasonal),
+   which the report turns into filters.
 
 ## Workflow
 
@@ -90,8 +92,21 @@ Spend a few searches building context that every later step needs: what the
 destination is known for, its food identity, main neighborhoods and their
 character, design and shopping culture, local language and script, public
 holidays and seasonal conditions for the dates, sunrise and sunset times, and
-the best local-language publications and event calendars. Write these notes
-to `work/orientation.md`. They brief the research agents.
+the best local-language publications and event calendars, and **which social
+platforms locals and regional travelers actually use** there (see below). Write
+these notes to `work/orientation.md`. They brief the research agents.
+
+Also decide the things every agent must use consistently, and put them in
+`orientation.md`:
+- **Regions**: 3–6 coarse areas a visitor thinks in (`meta.regions`).
+- **Lenses**: 2–6 cross-category interest toggles drawn from the traveler's
+  interests and the city's personality (e.g. `retro`, `design`, `rainy-day`),
+  plus `trending`.
+- **Theme**: the report's visual identity, rooted in the place (`theme`,
+  `meta.local_title`, and the `local`/`tagline` fields of `category_info`).
+  See the `theme` section of `references/schema.md`. The Hong Kong prototype's
+  MTR-map look, with line colours, station-sign headers, and 香港清單 as its title, is
+  the bar to meet. A generic palette is a missed opportunity.
 
 ### 3. Category research (fan out)
 Full coverage is ~200–300 researched items, too much for one context to do
@@ -108,9 +123,10 @@ agent each:
 | social-and-dated | `nightlife`, `events` |
 
 Brief each agent with: destination, dates, traveler profile and assumptions,
-the path to `work/orientation.md`, its sections of
-`references/categories.md`, `references/schema.md`, the research principles
-above, and the quality standards below. Tell it to write a JSON array of items
+the path to `work/orientation.md` (including the regions, lenses, and social
+platforms chosen there), its sections of `references/categories.md`,
+`references/schema.md`, the research principles above, the *Social & trending
+research* section, and the quality standards below. Tell it to write a JSON array of items
 to `trips/<slug>/work/<group>.json` and reply with only a short summary
 (counts, gaps, anything surprising). It shouldn't return the items inline,
 because the file is the hand-off. Agents should use their own category prefixes
@@ -146,6 +162,11 @@ sources, and update `status`, `verification`, and `seasonal`.
 - `clusters`: geographic groupings for the neighborhood view (e.g. "Kuramae: two
   stationery shops, a coffee roaster, a riverside photo spot"). Only group
   things that really are near each other, and don't invent walking times.
+- `category_info`: for each category, a local-script `local` label, a short
+  `tagline`, and a `note` wherever there's category-wide context worth a
+  callout. Examples: a price key, famous places that recently closed (so
+  the user stops looking for them), how trailheads are reached, seasonal
+  caveats. Add a `label` override when the destination suggests a better name.
 - `practical`: transit, payment, holiday closures, weather, access notes. Lists of
   booking-required, unverified, and event items are derived automatically.
 - `meta.coverage`: disclose any category with thin or incomplete coverage.
@@ -169,8 +190,52 @@ unless the user says so, because pushing publishes to GitHub. Then tell the user
 - the handful of most time-sensitive things (bookings to make now, events on their dates)
 - the local path to `index.html` and, once pushed, the Pages URL
   (`pages_base` in `site.json` + `/trips/<slug>/`)
-- how to shortlist: star items in the report, then **Export shortlist** →
-  save as `trips/<slug>/selections.json` for the itinerary phase
+- how to shortlist: tap ★ on items in the report. **Copy shortlist** gives
+  readable text for a trip sheet. **Export** downloads `selections.json`, which
+  goes in `trips/<slug>/` for the itinerary phase.
+
+## Social & trending research
+
+Instagram, Reels, TikTok, and regional platforms surface new, visually striking,
+trend-driven places (cafés, desserts, photo spots, pop-ups, shops) months before
+guides and listicles do. Use them, but with care. Most of their content is
+video, much of it is behind login walls, and virality isn't quality: trending
+places open and close fast, and some are photo ops with nothing behind them.
+
+**Where to look, in order:**
+1. **Search-indexed social.** Run web searches such as
+   `site:tiktok.com <city> <topic>` (TikTok's public `/discover/` pages carry
+   text summaries of top videos), `site:instagram.com <city> <topic>`
+   (captions and location tags of public posts and reels appear in results), and
+   phrasings like `<city> viral cafe 2026` or `<city> tiktok famous dessert`.
+   Use the local language too.
+2. **Regional platforms**, which are often richer than Instagram or TikTok for that market:
+   Xiaohongshu/RedNote (小红书) for Greater China, Japan, Korea, and Southeast Asia
+   (search the city's Chinese name with 小红书, 打卡, 必去, or 探店), OpenRice (HK),
+   Dianping (mainland China), Tabelog and Retty (Japan), Naver Blog and Map (Korea),
+   Dcard/PTT (Taiwan), Wongnai (Thailand). Pick the relevant ones in the
+   orientation pass.
+3. **Secondary coverage**: local media and Time Out-style pieces about what's
+   viral, and Reddit or forum threads that mention places people found on social.
+4. **Logged-in browser pass (opt-in only).** If a browser with the user's own
+   Instagram or TikTok session is available, *ask first*. With approval, browse
+   hashtag, location, and search pages for the most visual categories (cafés, desserts,
+   photography, shopping, nightlife) and read captions, location tags, and
+   comments. Stay read-only: never like, follow, comment, save, or post. Keep it
+   light, because it's slow and platforms rate-limit.
+
+**How to record what you find:**
+- **Corroborate before including.** A trending place still needs an independent,
+  non-social signal that it exists at that address and is operating: an official
+  account or site, a map listing, or press. Social-only finds go in as
+  `status: "unconfirmed"` at most.
+- Tag the item with the `trending` lens, and in `why` say *what* is trending and
+  *when* ("viral since spring 2026 for its soufflé pancakes"). Base `tier` on
+  substance, not view counts.
+- Add social URLs to `sources` with descriptive titles ("TikTok: @handle, 2.1M
+  views", "RedNote post").
+- Note practical realities in `seasonal` or `details`: queues, "photo spot
+  only", timed slots, and crowds at peak hours.
 
 ## Quality standards
 

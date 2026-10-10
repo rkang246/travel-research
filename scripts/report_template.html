@@ -2,429 +2,566 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>__TITLE__</title>
+__FONTS__
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  :root {
-    --bg: #f6f5f2; --panel: #ffffff; --panel-2: #f0eee9; --text: #1d1d1f; --muted: #6b6b70;
-    --line: #e3e1dc; --accent: #2b6cb0; --star: #d69e2e; --warn: #c05621; --bad: #c53030;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #111318; --panel: #1a1d24; --panel-2: #222631; --text: #e8e9ed; --muted: #9aa0ab;
-      --line: #2b2f39; --accent: #7fb2ff; --star: #f6c453; --warn: #f6ad55; --bad: #fc8181;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-  a { color: var(--accent); }
-  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
-  header.top { padding-top: 28px; padding-bottom: 8px; }
-  h1 { margin: 0; font-size: 1.75rem; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); margin: 2px 0 0; }
-  .muted { color: var(--muted); }
+/* Layout: each category is a "line" in its own colour and each discovery is a "stop"
+   on it. Single-column list under a sticky filter bar; Map / Neighborhoods / Table /
+   Practical are secondary views. Destination theming (fonts, line colours) is
+   injected by build.py in the second <style> block below. */
+:root {
+  --bg: #f4f3ef; --surface: #ffffff; --fg: #1b1d1c; --muted: #5f6662; --rule: #dcdfd9; --chip: #e8eae5;
+  --accent: #1f5fbf; --warn: #9a5b00; --warn-bg: #fff2d9; --bad: #a1281f; --bad-bg: #fbe4e1;
+  --ok: #2b7a3d; --star: #d9480f;
+  --f-display: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-local: system-ui, -apple-system, sans-serif;
+  --c-food: #d9480f; --c-restaurants: #c2255c; --c-products: #9c36b5; --c-neighborhoods: #6741d9;
+  --c-shopping: #3b5bdb; --c-photography: #1971c2; --c-attractions: #0b7285; --c-experiences: #087f5b;
+  --c-nature: #2b8a3e; --c-nightlife: #a85700; --c-events: #c92a2a; --c-daytrips: #5c677d;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111413; --surface: #1a1e1d; --fg: #e8ebe8; --muted: #9aa49f; --rule: #2c3230; --chip: #252a28;
+  --accent: #7fb2ff; --warn: #f0b85a; --warn-bg: #3a2c12; --bad: #ff7a6e; --bad-bg: #3a1915;
+  --ok: #6fcf86; --star: #ff7a45; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111413; --surface: #1a1e1d; --fg: #e8ebe8; --muted: #9aa49f; --rule: #2c3230; --chip: #252a28;
+  --accent: #7fb2ff; --warn: #f0b85a; --warn-bg: #3a2c12; --bad: #ff7a6e; --bad-bg: #3a1915;
+  --ok: #6fcf86; --star: #ff7a45; color-scheme: dark; }
 
-  nav.tabs { position: sticky; top: 0; z-index: 1000; background: var(--bg); border-bottom: 1px solid var(--line); }
-  nav.tabs .wrap { display: flex; gap: 4px; overflow-x: auto; padding-top: 8px; }
-  nav.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
-                    padding: 8px 12px; font: inherit; cursor: pointer; white-space: nowrap; }
-  nav.tabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+a { color: var(--accent); }
+.wrap { max-width: 960px; margin: 0 auto; padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); padding-block: 28px 80px; }
 
-  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0; }
-  .bar input[type=search], .bar select { font: inherit; font-size: 0.875rem; padding: 6px 8px; border-radius: 8px;
-     border: 1px solid var(--line); background: var(--panel); color: var(--text); max-width: 100%; }
-  .bar input[type=search] { flex: 1 1 220px; }
-  .bar label { font-size: 0.875rem; display: flex; gap: 4px; align-items: center; color: var(--muted); }
-  .shortbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.875rem; padding-bottom: 8px; }
-  .btn { font: inherit; font-size: 0.8125rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
-         background: var(--panel); color: var(--text); cursor: pointer; }
-  .btn:hover { border-color: var(--accent); }
-  .count { color: var(--muted); font-size: 0.875rem; }
+header.top { display: grid; gap: 6px; padding-bottom: 16px; }
+.top .local { font-family: var(--f-local); font-weight: 900; font-size: clamp(34px, 7vw, 54px); line-height: 1; letter-spacing: .04em; }
+.top h1 { margin: 0; font: 700 clamp(22px, 4vw, 30px)/1.1 var(--f-display); letter-spacing: .02em; text-transform: uppercase; text-wrap: balance; }
+.top p { margin: 2px 0 0; color: var(--muted); max-width: 70ch; }
+.strip { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.strip span { height: 6px; flex: 1 1 30px; border-radius: 3px; }
 
-  section.view { display: none; padding-bottom: 64px; }
-  section.view.on { display: block; }
+/* sticky bar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 1100; background: var(--bg); padding-block: 8px 10px; border-bottom: 1px solid var(--rule); display: grid; gap: 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bar > *, #filters { min-width: 0; }
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--rule); }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { background: none; border: 0; border-bottom: 3px solid transparent; color: var(--muted); padding: 6px 10px 7px; font: 600 14px var(--f-display); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--fg); }
+.chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { font: 600 13px/1 var(--f-body); border: 1.5px solid var(--rule); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 7px 11px 7px 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; text-decoration: none; }
+.chip .dot, .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; display: inline-block; }
+.chip[aria-pressed="true"] { background: var(--c, var(--fg)); border-color: var(--c, var(--fg)); color: #fff; }
+.chip[aria-pressed="true"] .dot { background: #fff; }
+.chip.tog { --c: var(--fg); }
+.chip.tog[aria-pressed="true"] { color: var(--bg); }
+.chip.tog[aria-expanded="true"] { border-color: var(--fg); }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=search], select { font: 500 14px var(--f-body); color: var(--fg); background: var(--surface); border: 1.5px solid var(--rule); border-radius: 8px; padding: 7px 9px; max-width: 100%; }
+input[type=search] { flex: 1 1 200px; min-width: 0; }
+.count { font: 600 13px var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
+.btn { font: 600 13px var(--f-body); background: var(--fg); color: var(--bg); border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--fg); border: 1.5px solid var(--rule); padding: 6.5px 10.5px; }
+#filter-toggle { display: none; }
+@media (max-width: 640px) {
+  #filter-toggle { display: inline-flex; }
+  #filters.collapsed .row.more-rows { display: none; }
+  .count { width: 100%; }
+}
+[hidden] { display: none !important; }
 
-  .overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 16px; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-  .panel h3 { margin: 0 0 6px; font-size: 1rem; }
-  .panel p, .panel ul { margin: 0; }
-  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
-          font-size: 0.875rem; cursor: pointer; }
-  .stat b { font-size: 1.1rem; margin-right: 4px; }
+/* overview */
+details.about { margin-top: 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 0 14px; }
+details.about summary { cursor: pointer; padding: 12px 0; font: 700 15px var(--f-display); letter-spacing: .05em; text-transform: uppercase; }
+.panels { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px 22px; padding-bottom: 14px; }
+.panels h3 { margin: 0 0 4px; font: 700 13px var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.panels p { margin: 0; }
+ul.tight { padding-left: 18px; margin: 2px 0 0; }
+ul.tight li { margin: 2px 0; }
 
-  .cat { margin-top: 28px; scroll-margin-top: 60px; }
-  .cat > h2 { font-size: 1.3rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
-  .subcat { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 16px 0 8px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-  @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } }
+/* category lines */
+section.line { margin-top: 30px; scroll-margin-top: 170px; }
+.sign { display: flex; align-items: stretch; border-radius: 6px; overflow: hidden; background: var(--c); color: #fff; }
+.sign .lz { font-family: var(--f-local); font-weight: 900; font-size: 26px; padding: 8px 14px; letter-spacing: .08em; background: rgba(0,0,0,.16); display: flex; align-items: center; white-space: nowrap; }
+.sign .en { padding: 8px 14px; display: grid; align-content: center; min-width: 0; }
+.sign h2 { margin: 0; font: 700 22px/1.05 var(--f-display); text-transform: uppercase; letter-spacing: .04em; }
+.sign small { font: 500 13px var(--f-body); opacity: .92; }
+.sign .n { margin-left: auto; padding: 8px 14px; font: 700 20px var(--f-display); display: flex; align-items: center; font-variant-numeric: tabular-nums; }
+.note { margin: 10px 0 0; padding: 10px 12px; border-left: 4px solid var(--c); background: var(--surface); border-radius: 0 6px 6px 0; font-size: 14px; }
 
-  .card { background: var(--panel); border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px;
-          padding: 12px 14px; scroll-margin-top: 70px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .card.flash { outline: 2px solid var(--accent); }
-  .card .head { display: flex; gap: 8px; align-items: flex-start; }
-  .card h4 { margin: 0; font-size: 1rem; line-height: 1.3; }
-  .card .local { color: var(--muted); font-size: 0.85rem; }
-  .card p { margin: 0; font-size: 0.9rem; }
-  .star { background: none; border: 0; cursor: pointer; font-size: 1.15rem; line-height: 1; padding: 0; color: var(--muted); flex: none; }
-  .star.on { color: var(--star); }
-  .head .grow { flex: 1; min-width: 0; }
-  .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.8rem; color: var(--muted); }
-  .badge { font-size: 0.7rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; color: var(--muted); }
-  .t-iconic { color: var(--star); border-color: var(--star); }
-  .t-strong { color: var(--accent); border-color: var(--accent); }
-  .b-required { color: var(--bad); border-color: var(--bad); }
-  .b-recommended { color: var(--warn); border-color: var(--warn); }
-  .s-unconfirmed { color: var(--warn); border-color: var(--warn); }
-  .s-possibly-closed { color: var(--bad); border-color: var(--bad); }
-  .s-verified { color: #2f855a; border-color: #2f855a; }
-  dl.det { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; margin: 0; font-size: 0.85rem; }
-  dl.det dt { color: var(--muted); }
-  dl.det dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-  .links { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.8rem; margin-top: auto; padding-top: 4px; }
-  .ver { font-size: 0.8rem; color: var(--muted); }
-  .also { margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
-  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; margin: 2px; border-radius: 999px;
-          border: 1px solid var(--line); background: var(--panel); font-size: 0.8rem; color: var(--text); text-decoration: none; cursor: pointer; }
+ol.stops { list-style: none; margin: 6px 0 0; padding: 0 0 0 22px; position: relative; }
+ol.stops::before { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 6px; background: var(--c); border-radius: 3px; }
+li.subhead { position: relative; padding: 16px 0 4px 16px; font: 700 12px var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+li.subhead::before { content: ""; position: absolute; left: -20px; top: 21px; width: 14px; height: 4px; background: var(--c); border-radius: 2px; }
+li.stop { position: relative; padding: 12px 0 10px 16px; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; scroll-margin-top: 180px; }
+li.stop::before { content: ""; position: absolute; left: -19px; top: 16px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 3px solid var(--c); }
+li.stop.picked::before { background: var(--c); }
+li.stop.flash { background: color-mix(in srgb, var(--c) 12%, transparent); }
+.name { font: 700 17px/1.25 var(--f-body); }
+.name .z { font-family: var(--f-local); font-weight: 500; font-size: 15px; color: var(--muted); margin-left: 6px; }
+li.stop.is-closed .name { text-decoration: line-through; text-decoration-thickness: 2px; }
+.meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.meta b { font-weight: 600; color: var(--fg); }
+.desc { grid-column: 1 / -1; margin: 0; max-width: 72ch; }
+.tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.tag { font: 600 11px/1 var(--f-body); letter-spacing: .04em; text-transform: uppercase; background: var(--chip); color: var(--muted); padding: 5px 7px; border-radius: 4px; }
+.tag.iconic { background: color-mix(in srgb, var(--c) 18%, var(--surface)); color: var(--fg); }
+.tag.lens { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--fg); }
+.tag.check, .tag.b-recommended { background: var(--warn-bg); color: var(--warn); }
+.tag.closed, .tag.b-required { background: var(--bad-bg); color: var(--bad); }
+.tag.verified { color: var(--ok); }
+.more { margin-left: auto; font: 600 12px var(--f-body); color: var(--accent); background: none; border: 0; padding: 4px 0; cursor: pointer; }
+.acts { display: flex; gap: 6px; align-items: start; grid-row: 1 / span 2; grid-column: 2; }
+.pick, .map { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--rule); background: var(--surface); color: var(--muted); display: grid; place-items: center; flex: none; }
+.pick { cursor: pointer; font-size: 18px; line-height: 1; padding: 0; }
+.pick[aria-pressed="true"] { background: var(--star); border-color: var(--star); color: #fff; }
+.map { color: var(--fg); text-decoration: none; font: 700 11px var(--f-display); letter-spacing: .04em; }
+.detail { grid-column: 1 / -1; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; font-size: 14px; }
+.detail p { margin: 0; }
+.detail dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; margin: 0; }
+.detail dt { color: var(--muted); }
+.detail dd { margin: 0; overflow-wrap: anywhere; }
+.detail .links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; }
+.detail .ver { color: var(--muted); font-size: 13px; }
+.also { margin: 10px 0 0 22px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.also .chip { font-size: 12px; padding: 5px 9px 5px 7px; }
+.empty { padding: 40px 0; text-align: center; color: var(--muted); }
 
-  #map { height: 70vh; min-height: 420px; border-radius: 12px; border: 1px solid var(--line); margin-top: 8px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.8rem; margin-top: 8px; }
-  .legend span { display: inline-flex; gap: 4px; align-items: center; }
+/* secondary views */
+#map { height: 68vh; min-height: 380px; border-radius: 10px; border: 1px solid var(--rule); margin-top: 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; margin-top: 8px; }
+.legend span { display: inline-flex; gap: 5px; align-items: center; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 16px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; }
+.card h3 { margin: 0; font: 700 17px var(--f-display); letter-spacing: .03em; text-transform: uppercase; }
+.card p { margin: 0; font-size: 14px; }
+.card .chiprow { display: flex; flex-wrap: wrap; gap: 4px; }
+.card .chip { font-size: 12px; padding: 5px 9px 5px 7px; }
+details.auto { margin-top: 24px; }
+details.auto summary { cursor: pointer; font-weight: 600; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; margin-top: 16px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--surface); }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { white-space: nowrap; background: var(--chip); }
+th button { all: unset; cursor: pointer; font-weight: 700; }
+td.nm { min-width: 170px; }
+td .pick { width: 30px; height: 30px; font-size: 15px; }
 
-  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; background: var(--panel); }
-  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { cursor: pointer; white-space: nowrap; background: var(--panel-2); position: sticky; top: 0; }
-  td.nm { min-width: 180px; }
-
-  .clusters { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-top: 16px; }
-  @media (max-width: 400px) { .clusters { grid-template-columns: 1fr; } }
-  details.auto { margin-top: 24px; }
-  details.auto summary { cursor: pointer; font-weight: 600; }
-  ul.tight { padding-left: 18px; margin: 4px 0 0; }
-  ul.tight li { margin: 2px 0; }
-  .empty { color: var(--muted); padding: 24px 0; }
+footer { margin-top: 40px; color: var(--muted); font-size: 13px; display: grid; gap: 6px; }
+footer a { color: var(--fg); }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: 8px; font-weight: 600; font-size: 14px; z-index: 2000; }
+textarea.fallback { width: 100%; min-height: 160px; font: 13px/1.4 var(--f-body); color: var(--fg); background: var(--surface); border: 1.5px solid var(--rule); border-radius: 8px; padding: 10px; }
+@media (max-width: 520px) {
+  .sign .lz { font-size: 20px; padding: 8px 10px; }
+  .sign h2 { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 </style>
+<style>__THEME_CSS__</style>
 </head>
 <body>
-<header class="top wrap">
-  <h1 id="title"></h1>
-  <p class="sub" id="subtitle"></p>
-</header>
-
-<nav class="tabs"><div class="wrap" id="tabs"></div></nav>
-
 <div class="wrap">
-  <div class="bar" id="filters">
-    <input type="search" id="q" placeholder="Search names, descriptions, neighborhoods…">
-    <select id="f-cat"><option value="">All categories</option></select>
-    <select id="f-hood"><option value="">All neighborhoods</option></select>
-    <select id="f-tier"><option value="">Any tier</option><option value="iconic">Iconic</option><option value="strong">Strong</option><option value="niche">Niche</option></select>
-    <select id="f-cost"><option value="">Any cost</option><option>free</option><option>$</option><option>$$</option><option>$$$</option><option>$$$$</option></select>
-    <select id="f-setting"><option value="">Indoor/outdoor</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="mixed">Mixed</option></select>
-    <select id="f-booking"><option value="">Any booking</option><option value="required">Booking required</option><option value="recommended">Booking recommended</option><option value="none">No booking</option></select>
-    <select id="f-status"><option value="">Any status</option><option value="verified">Verified</option><option value="reputation">Reputation</option><option value="unconfirmed">Unconfirmed</option><option value="possibly-closed">Possibly closed</option></select>
-    <label><input type="checkbox" id="f-short"> ★ only</label>
-    <button class="btn" id="reset">Reset</button>
-  </div>
-  <div class="shortbar">
-    <span>★ <b id="short-n">0</b> shortlisted</span>
-    <button class="btn" id="export">Export shortlist (selections.json)</button>
-    <button class="btn" id="copy">Copy IDs</button>
-    <button class="btn" id="clear">Clear</button>
-    <span class="count" id="count"></span>
-  </div>
-</div>
+  <header class="top">
+    <div class="local" id="local-title" hidden></div>
+    <h1 id="title"></h1>
+    <p id="subtitle"></p>
+    <div class="strip" id="strip" aria-hidden="true"></div>
+  </header>
 
-<main class="wrap">
-  <section class="view" id="v-overview"></section>
-  <section class="view" id="v-catalog"></section>
-  <section class="view" id="v-map"><div id="map"></div><div class="legend" id="legend"></div><p class="muted" id="map-note"></p></section>
-  <section class="view" id="v-hoods"></section>
-  <section class="view" id="v-table"></section>
-  <section class="view" id="v-practical"></section>
-</main>
+  <div class="bar" role="region" aria-label="Views and filters">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="filters" class="collapsed">
+      <div class="row chips" id="cats" aria-label="Categories"></div>
+      <div class="row more-rows" style="margin-top:8px">
+        <input type="search" id="q" placeholder="Search names, dishes, neighborhoods…" aria-label="Search">
+        <select id="f-region" aria-label="Region"><option value="">All regions</option></select>
+        <select id="f-hood" aria-label="Neighborhood"><option value="">All neighborhoods</option></select>
+        <span class="row" id="lenses"></span>
+        <button class="chip tog" id="f-short" aria-pressed="false">★ Shortlist only</button>
+        <button class="chip tog" id="more" aria-expanded="false" aria-controls="morefilters">More filters</button>
+      </div>
+      <div class="row more-rows" id="morefilters" hidden style="margin-top:8px">
+        <select id="f-tier" aria-label="Tier"><option value="">Any tier</option><option value="iconic">Iconic</option><option value="strong">Strong</option><option value="niche">Niche</option></select>
+        <select id="f-cost" aria-label="Cost"><option value="">Any cost</option><option>free</option><option>$</option><option>$$</option><option>$$$</option><option>$$$$</option></select>
+        <select id="f-setting" aria-label="Indoor or outdoor"><option value="">Indoor / outdoor</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="mixed">Mixed</option></select>
+        <select id="f-booking" aria-label="Booking"><option value="">Any booking</option><option value="required">Booking required</option><option value="recommended">Booking recommended</option><option value="none">No booking</option></select>
+        <select id="f-status" aria-label="Status"><option value="">Any status</option><option value="verified">Verified</option><option value="reputation">Reputation</option><option value="unconfirmed">Unconfirmed</option><option value="possibly-closed">Possibly closed</option></select>
+        <button class="btn ghost" id="reset">Reset filters</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="count" id="count" aria-live="polite"></span>
+      <button class="btn ghost" id="filter-toggle" aria-expanded="false" aria-controls="filters">Filters</button>
+      <button class="btn ghost" id="clear">Clear ★</button>
+      <button class="btn ghost" id="export" title="Download selections.json for the itinerary step">Export</button>
+      <button class="btn" id="copy">Copy shortlist</button>
+    </div>
+  </div>
+
+  <main>
+    <section class="view" id="v-list" role="tabpanel"></section>
+    <section class="view" id="v-map" role="tabpanel" hidden><div id="map"></div><div class="legend" id="legend"></div><p class="muted" id="map-note" style="color:var(--muted);font-size:13px"></p></section>
+    <section class="view" id="v-hoods" role="tabpanel" hidden></section>
+    <section class="view" id="v-table" role="tabpanel" hidden></section>
+    <section class="view" id="v-practical" role="tabpanel" hidden></section>
+  </main>
+  <div id="fallbackBox" hidden><p>Copying didn't work here. Select the text below instead:</p><textarea class="fallback" id="fallback" readonly></textarea></div>
+  <footer id="footer"></footer>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script>
 const DATA = __DATA__;
+(function () {
+  const CATS = DATA.categories;                       // [[key, label], ...] with per-trip label overrides
+  const CAT_LABEL = Object.fromEntries(CATS);
+  const INFO = DATA.category_info || {};
+  const LENSES = DATA.lenses || [];
+  const LENS_LABEL = Object.fromEntries(LENSES.map(l => [l.id, l.label]));
+  const ITEMS = DATA.items;
+  const BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+  const META = DATA.meta;
+  const TIER_ORDER = { iconic: 0, strong: 1, niche: 2 };
+  const TIER_LABEL = { iconic: "Iconic", strong: "Strong", niche: "Niche" };
+  const STATUS_LABEL = { verified: "Verified", reputation: "Reputation", unconfirmed: "Verify open", "possibly-closed": "Possibly closed" };
 
-const CATS = DATA.categories;               // [[key, label], ...]
-const CAT_LABEL = Object.fromEntries(CATS);
-const CAT_COLOR = {
-  food: "#e8590c", restaurants: "#d6336c", products: "#ae3ec9", neighborhoods: "#7048e8",
-  shopping: "#4263eb", photography: "#1c7ed6", attractions: "#0c8599", experiences: "#099268",
-  nature: "#37b24d", nightlife: "#f59f00", events: "#f03e3e", daytrips: "#868e96"
-};
-const TIER_ORDER = { iconic: 0, strong: 1, niche: 2 };
-const TIER_LABEL = { iconic: "Iconic", strong: "Strong", niche: "Niche" };
-const STATUS_LABEL = { verified: "Verified", reputation: "Reputation", unconfirmed: "Unconfirmed", "possibly-closed": "Possibly closed" };
-const ITEMS = DATA.items;
-const BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
-const META = DATA.meta;
-const STORE_KEY = "td-shortlist-" + META.slug;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const KEY = "td-" + META.slug + "-";
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(KEY + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const tierSort = (a, b) => (TIER_ORDER[a.tier] - TIER_ORDER[b.tier]) || a.name.localeCompare(b.name);
+  const catColor = k => getComputedStyle(document.documentElement).getPropertyValue("--c-" + k).trim() || "#888";
 
-const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const $ = id => document.getElementById(id);
+  // ---------- state
+  let picks = new Set(store.get("picks", []).filter(id => BY_ID[id]));
+  const expanded = new Set();
+  const F = { cats: new Set(), lenses: new Set(), q: "", region: "", hood: "", short: false,
+              tier: "", cost: "", setting: "", booking: "", status: "" };
+  const SELECTS = { q: "q", region: "f-region", hood: "f-hood", tier: "f-tier", cost: "f-cost", setting: "f-setting", booking: "f-booking", status: "f-status" };
 
-// ---------- shortlist (per-browser; export to share with the itinerary step)
-let shortlist = new Set();
-try { shortlist = new Set(JSON.parse(localStorage.getItem(STORE_KEY) || "[]").filter(id => BY_ID[id])); } catch (e) {}
-function saveShort() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify([...shortlist])); } catch (e) {}
-  $("short-n").textContent = shortlist.size;
-}
-function toggleStar(id) {
-  shortlist.has(id) ? shortlist.delete(id) : shortlist.add(id);
-  saveShort();
-  document.querySelectorAll('.star[data-id="' + id + '"]').forEach(b => {
-    b.classList.toggle("on", shortlist.has(id)); b.textContent = shortlist.has(id) ? "★" : "☆";
-  });
-  if (F.short) render();
-}
-
-// ---------- filters
-const F = { q: "", cat: "", hood: "", tier: "", cost: "", setting: "", booking: "", status: "", short: false };
-function matches(it, ignoreCat) {
-  if (!ignoreCat && F.cat && !it.categories.includes(F.cat)) return false;
-  if (F.hood && it.neighborhood !== F.hood) return false;
-  for (const k of ["tier", "cost", "setting", "booking", "status"]) if (F[k] && it[k] !== F[k]) return false;
-  if (F.short && !shortlist.has(it.id)) return false;
-  if (F.q) {
-    const hay = [it.name, it.local_name, it.description, it.why, it.neighborhood, it.subcategory, it.seasonal,
-                 JSON.stringify(it.details || {})].join(" ").toLowerCase();
-    if (!F.q.toLowerCase().split(/\s+/).every(w => hay.includes(w))) return false;
+  function matches(it, ignoreCat) {
+    if (!ignoreCat && F.cats.size && !it.categories.some(c => F.cats.has(c))) return false;
+    if (F.lenses.size && !(it.lenses || []).some(l => F.lenses.has(l))) return false;
+    if (F.region && it.region !== F.region) return false;
+    if (F.hood && it.neighborhood !== F.hood) return false;
+    for (const k of ["tier", "cost", "setting", "booking", "status"]) if (F[k] && it[k] !== F[k]) return false;
+    if (F.short && !picks.has(it.id)) return false;
+    if (F.q) {
+      const hay = [it.name, it.local_name, it.description, it.why, it.neighborhood, it.region, it.subcategory,
+                   it.seasonal, (it.lenses || []).map(l => LENS_LABEL[l]).join(" "), JSON.stringify(it.details || {})].join(" ").toLowerCase();
+      if (!F.q.split(/\s+/).every(w => hay.includes(w))) return false;
+    }
+    return true;
   }
-  return true;
-}
-const tierSort = (a, b) => (TIER_ORDER[a.tier] - TIER_ORDER[b.tier]) || a.name.localeCompare(b.name);
 
-// ---------- card
-function fmtDates(it) {
-  const d = it.dates || {};
-  if (!d.start) return "";
-  return (d.end && d.end !== d.start ? d.start + " → " + d.end : d.start) + (d.note ? " · " + d.note : "");
-}
-function card(it) {
-  const c = CAT_COLOR[it.categories[0]];
-  const meta = [];
-  if (it.neighborhood) meta.push("📍 " + esc(it.neighborhood));
-  if (it.cost) meta.push(esc(it.cost));
-  if (it.duration) meta.push("⏱ " + esc(it.duration));
-  if (it.setting) meta.push(esc(it.setting));
-  if (it.dates) meta.push("📅 " + esc(fmtDates(it)));
-  const badges = ['<span class="badge t-' + it.tier + '">' + TIER_LABEL[it.tier] + "</span>"];
-  if (it.booking && it.booking !== "none") badges.push('<span class="badge b-' + it.booking + '">Booking ' + it.booking + "</span>");
-  if (it.status !== "reputation") badges.push('<span class="badge s-' + it.status + '">' + STATUS_LABEL[it.status] + "</span>");
-  it.categories.slice(1).forEach(k => badges.push('<span class="badge">also: ' + esc(CAT_LABEL[k]) + "</span>"));
-
-  const det = [];
-  if (it.best_time) det.push(["Best time", it.best_time]);
-  if (it.seasonal) det.push(["Your dates", it.seasonal]);
-  Object.entries(it.details || {}).forEach(([k, v]) => det.push([k, v]));
-  let where = "";
-  if ((it.where && it.where.length) || it.where_note) {
-    const links = (it.where || []).map(id => BY_ID[id] ? '<a href="#it-' + id + '" data-jump="' + id + '">' + esc(BY_ID[id].name) + "</a>" : "").join(", ");
-    where = '<p><b>Find it:</b> ' + links + (links && it.where_note ? " · " : "") + esc(it.where_note || "") + "</p>";
+  // ---------- list view
+  function fmtDates(it) {
+    const d = it.dates || {};
+    if (!d.start) return "";
+    return (d.end && d.end !== d.start ? d.start + " → " + d.end : d.start) + (d.note ? " · " + d.note : "");
   }
-  const links = [];
-  if (it.maps_url) links.push('<a href="' + esc(it.maps_url) + '" target="_blank" rel="noopener">Google Maps</a>');
-  if (it.website) links.push('<a href="' + esc(it.website) + '" target="_blank" rel="noopener">Website</a>');
-  (it.sources || []).forEach((s, n) => links.push('<a href="' + esc(s.url) + '" target="_blank" rel="noopener" title="' + esc(s.title || s.url) + '">Source ' + (n + 1) + "</a>"));
-  const on = shortlist.has(it.id);
-  return '<article class="card" id="it-' + esc(it.id) + '" style="border-left-color:' + c + '">' +
-    '<div class="head"><button class="star' + (on ? " on" : "") + '" data-id="' + esc(it.id) + '" title="Shortlist">' + (on ? "★" : "☆") + "</button>" +
-    '<div class="grow"><h4>' + esc(it.name) + "</h4>" + (it.local_name ? '<div class="local">' + esc(it.local_name) + "</div>" : "") + "</div></div>" +
-    '<div class="meta">' + badges.join(" ") + "</div>" +
-    (meta.length ? '<div class="meta">' + meta.join(" · ") + "</div>" : "") +
-    "<p>" + esc(it.description) + "</p>" +
-    '<p><b>Why here:</b> ' + esc(it.why) + "</p>" + where +
-    (det.length ? '<dl class="det">' + det.map(([k, v]) => "<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>").join("") + "</dl>" : "") +
-    (it.verification ? '<div class="ver">✓ ' + esc(it.verification) + "</div>" : "") +
-    '<div class="links">' + links.join("") + "</div></article>";
-}
-
-// ---------- views
-function renderOverview() {
-  const coverage = (META.coverage || []).map(c => "<li><b>" + esc(CAT_LABEL[c.category] || c.category) + ":</b> " + esc(c.note) + "</li>").join("");
-  const assumptions = (META.assumptions || []).map(a => "<li>" + esc(a) + "</li>").join("");
-  const t = META.traveler || {};
-  const trav = ["base", "interests", "budget", "pace", "transport"].filter(k => t[k]).map(k => "<li><b>" + k + ":</b> " + esc(Array.isArray(t[k]) ? t[k].join(", ") : t[k]) + "</li>").join("");
-  const stats = CATS.map(([k, label]) => {
-    const n = ITEMS.filter(i => i.categories[0] === k).length;
-    return '<span class="stat" data-cat="' + k + '"><span class="dot" style="background:' + CAT_COLOR[k] + '"></span> <b>' + n + "</b>" + esc(label) + "</span>";
-  }).join("");
-  $("v-overview").innerHTML =
-    '<div class="stats">' + stats + "</div>" +
-    '<div class="overview">' + (DATA.overview || []).map(o => '<div class="panel"><h3>' + esc(o.heading) + "</h3><p>" + esc(o.text) + "</p></div>").join("") +
-    (trav ? '<div class="panel"><h3>Traveler profile</h3><ul class="tight">' + trav + "</ul></div>" : "") +
-    (assumptions ? '<div class="panel"><h3>Assumptions</h3><ul class="tight">' + assumptions + "</ul></div>" : "") +
-    (coverage ? '<div class="panel"><h3>Coverage gaps</h3><ul class="tight">' + coverage + "</ul></div>" : "") +
-    "</div>";
-}
-
-function renderCatalog() {
-  let html = "", shown = 0;
-  CATS.forEach(([k, label]) => {
-    if (F.cat && F.cat !== k) return;
-    const primary = ITEMS.filter(i => i.categories[0] === k && matches(i, true)).sort(tierSort);
-    const also = ITEMS.filter(i => i.categories.indexOf(k) > 0 && matches(i, true)).sort(tierSort);
-    if (!primary.length && !also.length) return;
-    shown += primary.length;
-    html += '<div class="cat" id="cat-' + k + '"><h2><span class="dot" style="background:' + CAT_COLOR[k] + '"></span>' + esc(label) +
-            ' <span class="count">' + primary.length + "</span></h2>";
-    const groups = {};
-    primary.forEach(i => (groups[i.subcategory || ""] = groups[i.subcategory || ""] || []).push(i));
-    Object.keys(groups).sort((a, b) => (a === "") - (b === "") || a.localeCompare(b)).forEach(sub => {
-      if (sub) html += '<div class="subcat">' + esc(sub) + "</div>";
-      else if (Object.keys(groups).length > 1) html += '<div class="subcat">Other</div>';
-      html += '<div class="grid">' + groups[sub].map(card).join("") + "</div>";
+  function detail(it) {
+    const rows = [];
+    if (it.best_time) rows.push(["Best time", it.best_time]);
+    if (it.seasonal) rows.push(["Your dates", it.seasonal]);
+    if (it.address) rows.push(["Address", it.address]);
+    Object.entries(it.details || {}).forEach(([k, v]) => rows.push([k, v]));
+    let where = "";
+    if ((it.where && it.where.length) || it.where_note) {
+      const links = (it.where || []).filter(id => BY_ID[id]).map(id => '<a href="#it-' + id + '" data-jump="' + id + '">' + esc(BY_ID[id].name) + "</a>").join(", ");
+      where = "<p><b>Find it:</b> " + links + (links && it.where_note ? " · " : "") + esc(it.where_note || "") + "</p>";
+    }
+    const links = [];
+    if (it.website) links.push('<a href="' + esc(it.website) + '" target="_blank" rel="noopener">Website</a>');
+    (it.sources || []).forEach(s => links.push('<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title || "Source") + "</a>"));
+    return '<p><b>Why here:</b> ' + esc(it.why) + "</p>" + where +
+      (rows.length ? "<dl>" + rows.map(([k, v]) => "<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>").join("") + "</dl>" : "") +
+      (it.verification ? '<p class="ver">Status: ' + esc(STATUS_LABEL[it.status]) + " · " + esc(it.verification) + "</p>" : "") +
+      (links.length ? '<div class="links">' + links.join("") + "</div>" : "");
+  }
+  function stop(it) {
+    const p = picks.has(it.id), open = expanded.has(it.id);
+    const meta = [];
+    if (it.neighborhood) meta.push("<span><b>" + esc(it.neighborhood) + "</b></span>");
+    if (it.region && it.region !== it.neighborhood) meta.push("<span>" + esc(it.region) + "</span>");
+    if (it.cost) meta.push("<span>" + esc(it.cost) + "</span>");
+    if (it.duration) meta.push("<span>" + esc(it.duration) + "</span>");
+    if (it.dates) meta.push("<span><b>" + esc(fmtDates(it)) + "</b></span>");
+    const tags = [];
+    if (it.status === "possibly-closed") tags.push('<span class="tag closed">Possibly closed</span>');
+    if (it.status === "unconfirmed") tags.push('<span class="tag check">Verify open</span>');
+    if (it.tier !== "strong") tags.push('<span class="tag ' + it.tier + '">' + TIER_LABEL[it.tier] + "</span>");
+    if (it.booking === "required") tags.push('<span class="tag b-required">Book ahead</span>');
+    if (it.booking === "recommended") tags.push('<span class="tag b-recommended">Booking advised</span>');
+    (it.lenses || []).forEach(l => LENS_LABEL[l] && tags.push('<span class="tag lens">' + esc(LENS_LABEL[l]) + "</span>"));
+    if (it.setting === "outdoor") tags.push('<span class="tag">Outdoor</span>');
+    it.categories.slice(1).forEach(k => tags.push('<span class="tag">Also: ' + esc(CAT_LABEL[k]) + "</span>"));
+    return '<li class="stop' + (p ? " picked" : "") + (it.status === "possibly-closed" ? " is-closed" : "") + '" id="it-' + esc(it.id) + '">' +
+      '<div><div class="name">' + esc(it.name) + (it.local_name ? '<span class="z">' + esc(it.local_name) + "</span>" : "") + "</div>" +
+      (meta.length ? '<div class="meta">' + meta.join("") + "</div>" : "") + "</div>" +
+      '<div class="acts">' +
+        (it.maps_url ? '<a class="map" href="' + esc(it.maps_url) + '" target="_blank" rel="noopener" aria-label="Open ' + esc(it.name) + ' in Google Maps">MAP</a>' : "") +
+        '<button class="pick" data-id="' + esc(it.id) + '" aria-pressed="' + p + '" aria-label="Shortlist ' + esc(it.name) + '">★</button>' +
+      "</div>" +
+      '<p class="desc">' + esc(it.description) + "</p>" +
+      '<div class="tags">' + tags.join("") + '<button class="more" data-more="' + esc(it.id) + '" aria-expanded="' + open + '" aria-controls="d-' + esc(it.id) + '">' + (open ? "Less ▴" : "Why · details · sources ▾") + "</button></div>" +
+      '<div class="detail" id="d-' + esc(it.id) + '"' + (open ? "" : " hidden") + ">" + (open ? detail(it) : "") + "</div>" +
+      "</li>";
+  }
+  function about() {
+    const t = META.traveler || {};
+    const trav = ["base", "interests", "budget", "pace", "transport"].filter(k => t[k]).map(k => "<li><b>" + k + ":</b> " + esc(Array.isArray(t[k]) ? t[k].join(", ") : t[k]) + "</li>").join("");
+    const list = (h, arr) => arr.length ? '<div><h3>' + h + '</h3><ul class="tight">' + arr.join("") + "</ul></div>" : "";
+    return '<details class="about" id="about"' + (store.get("about", true) ? " open" : "") + "><summary>About " + esc(META.destination) + "</summary>" +
+      '<div class="panels">' + (DATA.overview || []).map(o => "<div><h3>" + esc(o.heading) + "</h3><p>" + esc(o.text) + "</p></div>").join("") +
+      (trav ? '<div><h3>Traveler profile</h3><ul class="tight">' + trav + "</ul></div>" : "") +
+      list("Assumptions", (META.assumptions || []).map(a => "<li>" + esc(a) + "</li>")) +
+      list("Coverage gaps", (META.coverage || []).map(c => "<li><b>" + esc(CAT_LABEL[c.category] || c.category) + ":</b> " + esc(c.note) + "</li>")) +
+      "</div></details>";
+  }
+  function renderList() {
+    let html = about(), total = 0;
+    CATS.forEach(([k, label]) => {
+      if (F.cats.size && !F.cats.has(k)) return;
+      const prim = ITEMS.filter(i => i.categories[0] === k && matches(i, true)).sort(tierSort);
+      const also = ITEMS.filter(i => i.categories.indexOf(k) > 0 && matches(i, true)).sort(tierSort);
+      if (!prim.length && !also.length) return;
+      total += prim.length;
+      const info = INFO[k] || {};
+      const groups = {};
+      prim.forEach(i => (groups[i.subcategory || ""] = groups[i.subcategory || ""] || []).push(i));
+      const keys = Object.keys(groups).sort((a, b) => (a === "") - (b === "") || a.localeCompare(b));
+      html += '<section class="line" id="cat-' + k + '" style="--c:var(--c-' + k + ')">' +
+        '<div class="sign">' + (info.local ? '<div class="lz">' + esc(info.local) + "</div>" : "") +
+        '<div class="en"><h2>' + esc(label) + "</h2>" + (info.tagline ? "<small>" + esc(info.tagline) + "</small>" : "") + "</div>" +
+        '<div class="n">' + prim.length + "</div></div>" +
+        (info.note ? '<p class="note">' + esc(info.note) + "</p>" : "") +
+        '<ol class="stops">' + keys.map(sub =>
+          (sub ? '<li class="subhead">' + esc(sub) + "</li>" : (keys.length > 1 ? '<li class="subhead">Other</li>' : "")) +
+          groups[sub].map(stop).join("")).join("") + "</ol>" +
+        (also.length ? '<div class="also">Also on this line: ' + also.map(chip).join("") + "</div>" : "") +
+        "</section>";
     });
-    if (also.length) html += '<div class="also">Also relevant here: ' + also.map(i => '<a class="chip" data-jump="' + i.id + '"><span class="dot" style="background:' + CAT_COLOR[i.categories[0]] + '"></span>' + esc(i.name) + "</a>").join("") + "</div>";
-    html += "</div>";
-  });
-  $("v-catalog").innerHTML = html || '<p class="empty">Nothing matches these filters.</p>';
-  $("count").textContent = shown + " of " + ITEMS.length + " shown";
-}
-
-let map, layer;
-function renderMap() {
-  if (!window.L) { $("map-note").textContent = "Map library failed to load (offline?). Use the Google Maps links instead."; return; }
-  if (!map) {
-    map = L.map("map");
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
-    layer = L.layerGroup().addTo(map);
-    $("legend").innerHTML = CATS.map(([k, l]) => '<span><span class="dot" style="background:' + CAT_COLOR[k] + '"></span>' + esc(l) + "</span>").join("");
+    if (!total) html += '<div class="empty">Nothing matches these filters. Try clearing the search or picking another category.</div>';
+    $("v-list").innerHTML = html;
+    $("about").addEventListener("toggle", e => store.set("about", e.target.open));
+    setCount(total);
   }
-  layer.clearLayers();
-  const pts = ITEMS.filter(i => i.lat != null && matches(i));
-  pts.forEach(i => {
-    const m = L.circleMarker([i.lat, i.lng], { radius: i.tier === "iconic" ? 8 : 6, color: "#fff", weight: 1.5,
-      fillColor: CAT_COLOR[i.categories[0]], fillOpacity: 0.9 });
-    m.bindPopup("<b>" + esc(i.name) + "</b><br>" + esc(CAT_LABEL[i.categories[0]]) + " · " + TIER_LABEL[i.tier] +
-      (i.neighborhood ? "<br>" + esc(i.neighborhood) : "") + "<br><a href=\"#\" data-jump=\"" + i.id + "\">Show card</a>" +
-      (i.maps_url ? ' · <a href="' + esc(i.maps_url) + '" target="_blank" rel="noopener">Google Maps</a>' : ""));
-    m.addTo(layer);
+  function chip(i) {
+    return '<a class="chip" href="#it-' + esc(i.id) + '" data-jump="' + esc(i.id) + '" style="--c:var(--c-' + i.categories[0] + ')"><span class="dot"></span>' + esc(i.name) + (picks.has(i.id) ? " ★" : "") + "</a>";
+  }
+  function setCount(n) { $("count").textContent = (n == null ? ITEMS.filter(i => matches(i)).length : n) + " shown · " + picks.size + " ★"; }
+
+  // ---------- map
+  let map, layer;
+  function renderMap() {
+    if (!window.L) { $("map-note").textContent = "The map library didn't load (offline?). Use each place's MAP link instead."; setCount(); return; }
+    if (!map) {
+      map = L.map("map");
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+      layer = L.layerGroup().addTo(map);
+      $("legend").innerHTML = CATS.map(([k, l]) => '<span><span class="dot" style="--c:var(--c-' + k + ')"></span>' + esc(l) + "</span>").join("");
+    }
+    layer.clearLayers();
+    const pts = ITEMS.filter(i => i.lat != null && matches(i));
+    pts.forEach(i => {
+      L.circleMarker([i.lat, i.lng], { radius: i.tier === "iconic" ? 8 : 6, color: "#fff", weight: 1.5, fillColor: catColor(i.categories[0]), fillOpacity: 0.92 })
+        .bindPopup("<b>" + esc(i.name) + "</b>" + (i.local_name ? " " + esc(i.local_name) : "") + "<br>" + esc(CAT_LABEL[i.categories[0]]) +
+          (i.neighborhood ? " · " + esc(i.neighborhood) : "") + '<br><a href="#it-' + i.id + '" data-jump="' + i.id + '">Show in list</a>' +
+          (i.maps_url ? ' · <a href="' + esc(i.maps_url) + '" target="_blank" rel="noopener">Google Maps</a>' : ""))
+        .addTo(layer);
+    });
+    const mappable = ITEMS.filter(i => i.maps_url && matches(i)).length;
+    $("map-note").textContent = pts.length + " of " + mappable + " mappable matches have pins. Pins come from sources or OpenStreetMap geocoding. If one looks wrong, trust its Google Maps link.";
+    setCount();
+    setTimeout(() => { map.invalidateSize(); if (pts.length) map.fitBounds(L.latLngBounds(pts.map(i => [i.lat, i.lng])).pad(0.1)); }, 0);
+  }
+
+  // ---------- neighborhoods
+  function renderHoods() {
+    const clusters = (DATA.clusters || []).map(c => {
+      const members = c.ids.map(id => BY_ID[id]).filter(i => i && matches(i));
+      return members.length ? '<div class="card"><h3>' + esc(c.name) + "</h3><p>" + esc(c.summary || "") + '</p><div class="chiprow">' + members.map(chip).join("") + "</div></div>" : "";
+    }).join("");
+    const byHood = {};
+    ITEMS.filter(i => i.neighborhood && matches(i)).forEach(i => (byHood[i.neighborhood] = byHood[i.neighborhood] || []).push(i));
+    const auto = Object.keys(byHood).sort((a, b) => byHood[b].length - byHood[a].length).map(h =>
+      '<div class="card"><h3>' + esc(h) + ' <span style="color:var(--muted)">' + byHood[h].length + '</span></h3><div class="chiprow">' + byHood[h].sort(tierSort).map(chip).join("") + "</div></div>").join("");
+    $("v-hoods").innerHTML = (clusters ? '<div class="cards">' + clusters + "</div>" : '<p class="empty">No curated clusters match.</p>') +
+      '<details class="auto"><summary>Every place grouped by its neighborhood</summary><div class="cards">' + auto + "</div></details>";
+    setCount();
+  }
+
+  // ---------- table
+  let sortKey = "category", sortDir = 1;
+  const COLS = [["name", "Name"], ["category", "Category"], ["region", "Region"], ["neighborhood", "Neighborhood"], ["tier", "Tier"],
+                ["cost", "Cost"], ["duration", "Duration"], ["setting", "Setting"], ["booking", "Booking"], ["status", "Status"], ["id", "ID"]];
+  const cell = (i, k) => k === "category" ? CAT_LABEL[i.categories[0]] : k === "tier" ? TIER_ORDER[i.tier] : (i[k] || "");
+  function renderTable() {
+    const rows = ITEMS.filter(i => i.maps_url && matches(i)).sort((a, b) => String(cell(a, sortKey)).localeCompare(String(cell(b, sortKey))) * sortDir || a.name.localeCompare(b.name));
+    $("v-table").innerHTML = '<p style="color:var(--muted);font-size:13px;margin:16px 0 0">Master location database: ' + rows.length + ' places. Same records as <a href="locations.csv">locations.csv</a>.</p>' +
+      '<div class="tablewrap"><table><thead><tr><th aria-label="Shortlist"></th><th>Map</th>' +
+      COLS.map(([k, l]) => '<th aria-sort="' + (sortKey === k ? (sortDir > 0 ? "ascending" : "descending") : "none") + '"><button data-sort="' + k + '">' + l + (sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : "") + "</button></th>").join("") +
+      "</tr></thead><tbody>" + rows.map(i => "<tr>" +
+        '<td><button class="pick" data-id="' + esc(i.id) + '" aria-pressed="' + picks.has(i.id) + '" aria-label="Shortlist ' + esc(i.name) + '">★</button></td>' +
+        '<td><a href="' + esc(i.maps_url) + '" target="_blank" rel="noopener">open</a></td>' +
+        COLS.map(([k]) => k === "name" ? '<td class="nm"><a href="#it-' + esc(i.id) + '" data-jump="' + esc(i.id) + '">' + esc(i.name) + "</a></td>" :
+          k === "tier" ? "<td>" + TIER_LABEL[i.tier] + "</td>" :
+          k === "status" ? "<td>" + esc(STATUS_LABEL[i.status]) + "</td>" : "<td>" + esc(cell(i, k)) + "</td>").join("") + "</tr>").join("") +
+      "</tbody></table></div>";
+    setCount(rows.length);
+  }
+
+  // ---------- practical
+  function renderPractical() {
+    const block = (title, arr, extra) => arr.length ? '<div class="card"><h3>' + title + ' <span style="color:var(--muted)">' + arr.length + '</span></h3><ul class="tight">' +
+      arr.map(i => '<li><a href="#it-' + esc(i.id) + '" data-jump="' + esc(i.id) + '">' + esc(i.name) + "</a>" + (extra(i) ? " · " + esc(extra(i)) : "") + "</li>").join("") + "</ul></div>" : "";
+    const events = ITEMS.filter(i => i.dates && i.dates.start).sort((a, b) => a.dates.start.localeCompare(b.dates.start));
+    $("v-practical").innerHTML = '<div class="cards">' +
+      block("Events on your dates", events, fmtDates) +
+      block("Book ahead", ITEMS.filter(i => i.booking === "required").sort(tierSort), i => i.seasonal || i.verification || "") +
+      block("Booking advised", ITEMS.filter(i => i.booking === "recommended").sort(tierSort), i => i.seasonal || "") +
+      block("Possibly closed", ITEMS.filter(i => i.status === "possibly-closed"), i => i.verification || "") +
+      block("Verify before going", ITEMS.filter(i => i.status === "unconfirmed"), i => i.verification || "") +
+      (DATA.practical || []).map(p => '<div class="card"><h3>' + esc(p.heading) + '</h3><ul class="tight">' + p.items.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul></div>").join("") +
+      "</div>";
+    setCount();
+  }
+
+  // ---------- tabs
+  const TABS = [["list", "List"], ["map", "Map"], ["hoods", "Neighborhoods"], ["table", "Table"], ["practical", "Practical"]];
+  const RENDER = { list: renderList, map: renderMap, hoods: renderHoods, table: renderTable, practical: renderPractical };
+  let tab = "list";
+  try { tab = sessionStorage.getItem(KEY + "tab") || "list"; } catch (e) {}
+  if (!RENDER[tab]) tab = "list";
+  function show(t) {
+    tab = t;
+    try { sessionStorage.setItem(KEY + "tab", t); } catch (e) {}
+    document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === t));
+    TABS.forEach(([k]) => $("v-" + k).hidden = k !== t);
+    $("filters").hidden = t === "practical";
+    $("filter-toggle").hidden = t === "practical";
+    RENDER[t]();
+  }
+  const render = () => RENDER[tab]();
+
+  function jump(id) {
+    if (!BY_ID[id]) return;
+    if (tab !== "list") show("list");
+    expanded.add(id);
+    let el = $("it-" + id);
+    if (!el) { resetFilters(); }
+    renderList();
+    el = $("it-" + id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("flash");
+    setTimeout(() => el.classList.remove("flash"), 1600);
+  }
+  function resetFilters() {
+    F.cats.clear(); F.lenses.clear(); F.short = false;
+    Object.keys(SELECTS).forEach(k => { F[k] = ""; $(SELECTS[k]).value = ""; });
+    document.querySelectorAll("#cats .chip, #lenses .chip").forEach(b => b.setAttribute("aria-pressed", "false"));
+    $("f-short").setAttribute("aria-pressed", "false");
+  }
+
+  // ---------- shortlist
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 1800); }
+  function togglePick(id) {
+    picks.has(id) ? picks.delete(id) : picks.add(id);
+    store.set("picks", [...picks]);
+    const on = picks.has(id);
+    document.querySelectorAll('.pick[data-id="' + CSS.escape(id) + '"]').forEach(b => b.setAttribute("aria-pressed", on));
+    const li = $("it-" + id); if (li) li.classList.toggle("picked", on);
+    if (F.short) render();
+    else $("count").textContent = $("count").textContent.replace(/\d+ ★$/, picks.size + " ★");
+  }
+  function shortlistText() {
+    const rows = ITEMS.filter(i => picks.has(i.id));
+    return META.destination.toUpperCase() + " SHORTLIST (" + META.arrive + " → " + META.depart + ")\n\n" + CATS.map(([k, l]) => {
+      const r = rows.filter(i => i.categories[0] === k);
+      return r.length ? l.toUpperCase() + "\n" + r.map(i => "- " + i.name + (i.local_name ? " (" + i.local_name + ")" : "") + (i.neighborhood ? " — " + i.neighborhood : "") + (i.maps_url ? "\n  " + i.maps_url : "")).join("\n") : "";
+    }).filter(Boolean).join("\n\n");
+  }
+
+  // ---------- wiring
+  $("title").textContent = META.destination + " Discovery Guide";
+  if (META.local_title) { $("local-title").textContent = META.local_title; $("local-title").hidden = false; }
+  $("subtitle").textContent = META.destination + ", " + META.country + " · " + META.arrive + " → " + META.depart + " · " + ITEMS.length +
+    " discoveries. Tap ★ to shortlist (saved in this browser), then copy or export your shortlist for itinerary planning.";
+  $("strip").innerHTML = CATS.map(([k]) => '<span style="background:var(--c-' + k + ')"></span>').join("");
+  $("tabs").innerHTML = TABS.map(([k, l]) => '<button role="tab" data-tab="' + k + '" aria-selected="false" aria-controls="v-' + k + '">' + l + "</button>").join("");
+  $("cats").innerHTML = CATS.filter(([k]) => ITEMS.some(i => i.categories.includes(k))).map(([k, l]) =>
+    '<button class="chip" data-cat="' + k + '" aria-pressed="false" style="--c:var(--c-' + k + ')"><span class="dot"></span>' + esc(l) + "</button>").join("");
+  $("lenses").innerHTML = LENSES.map(l => '<button class="chip tog" data-lens="' + esc(l.id) + '" aria-pressed="false" title="' + esc(l.hint || "") + '">' + esc(l.label) + "</button>").join("");
+  const regions = META.regions || [...new Set(ITEMS.map(i => i.region).filter(Boolean))].sort();
+  if (regions.length) $("f-region").innerHTML += regions.map(r => "<option>" + esc(r) + "</option>").join(""); else $("f-region").hidden = true;
+  $("f-hood").innerHTML += [...new Set(ITEMS.map(i => i.neighborhood).filter(Boolean))].sort().map(h => "<option>" + esc(h) + "</option>").join("");
+  const files = DATA.files || {};
+  $("footer").innerHTML = "<div>Researched " + esc(META.generated) + ". Statuses: <b>Verified</b> means details were confirmed from an official or recent source. <b>Verify open</b> means it couldn't be confirmed. <b>Possibly closed</b> means there were closure or move signals. Everything else is well-regarded, but check hours before you go.</div>" +
+    '<div>Data: <a href="data.json">data.json</a> · <a href="locations.csv">locations.csv</a> · <a href="locations.kml">locations.kml</a>' +
+    ((files.mymaps || []).length ? " · My Maps layers: " + files.mymaps.map(f => '<a href="mymaps/' + esc(f) + '">' + esc(f.replace(/\.csv$/, "")) + "</a>").join(", ") : "") + "</div>";
+
+  Object.entries(SELECTS).forEach(([k, id]) => $(id).addEventListener("input", e => { F[k] = k === "q" ? e.target.value.trim().toLowerCase() : e.target.value; render(); }));
+  $("f-short").addEventListener("click", e => { F.short = !F.short; e.currentTarget.setAttribute("aria-pressed", F.short); render(); });
+  $("more").addEventListener("click", e => { const open = $("morefilters").hidden; $("morefilters").hidden = !open; e.currentTarget.setAttribute("aria-expanded", open); });
+  $("filter-toggle").addEventListener("click", e => { const c = $("filters").classList.toggle("collapsed"); e.currentTarget.setAttribute("aria-expanded", !c); });
+  $("reset").addEventListener("click", () => { resetFilters(); render(); });
+  $("clear").addEventListener("click", e => {
+    const b = e.currentTarget;
+    if (!picks.size) return toast("Shortlist is already empty");
+    if (b.dataset.armed) { picks.clear(); store.set("picks", []); delete b.dataset.armed; b.textContent = "Clear ★"; render(); toast("Shortlist cleared"); }
+    else { b.dataset.armed = "1"; b.textContent = "Tap again to clear"; setTimeout(() => { delete b.dataset.armed; b.textContent = "Clear ★"; }, 2500); }
   });
-  const mappable = ITEMS.filter(i => i.maps_url && matches(i)).length;
-  $("map-note").textContent = pts.length + " pinned of " + mappable + " mappable matches. Pins come from sources or OpenStreetMap geocoding; trust the Google Maps link if a pin looks off.";
-  setTimeout(() => { map.invalidateSize(); if (pts.length) map.fitBounds(L.latLngBounds(pts.map(i => [i.lat, i.lng])).pad(0.1)); }, 0);
-}
+  $("copy").addEventListener("click", () => {
+    if (!picks.size) return toast("Shortlist is empty. Tap ★ on a place first.");
+    const text = shortlistText();
+    const fallback = () => { $("fallbackBox").hidden = false; const ta = $("fallback"); ta.value = text; ta.focus(); ta.select(); };
+    try { navigator.clipboard.writeText(text).then(() => toast("Copied " + picks.size + " places"), fallback); } catch (e) { fallback(); }
+  });
+  $("export").addEventListener("click", () => {
+    if (!picks.size) return toast("Shortlist is empty. Tap ★ on a place first.");
+    const ids = [...picks];
+    const out = { trip: META.slug, destination: META.destination, arrive: META.arrive, depart: META.depart, exported: new Date().toISOString(), ids,
+      items: ids.map(id => ({ id, name: BY_ID[id].name, category: BY_ID[id].categories[0], neighborhood: BY_ID[id].neighborhood || null })) };
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" }));
+    a.download = "selections.json"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast("Saved selections.json. Put it in this trip's folder.");
+  });
+  document.addEventListener("click", e => {
+    const pk = e.target.closest(".pick"); if (pk) { togglePick(pk.dataset.id); return; }
+    const mo = e.target.closest("[data-more]");
+    if (mo) {
+      const id = mo.dataset.more, open = !expanded.has(id);
+      open ? expanded.add(id) : expanded.delete(id);
+      const d = $("d-" + id); d.hidden = !open; d.innerHTML = open ? detail(BY_ID[id]) : "";
+      mo.setAttribute("aria-expanded", open); mo.textContent = open ? "Less ▴" : "Why · details · sources ▾";
+      return;
+    }
+    const j = e.target.closest("[data-jump]"); if (j) { e.preventDefault(); jump(j.dataset.jump); return; }
+    const tb = e.target.closest("#tabs button"); if (tb) { show(tb.dataset.tab); return; }
+    const c = e.target.closest("#cats .chip");
+    if (c) { const k = c.dataset.cat; F.cats.has(k) ? F.cats.delete(k) : F.cats.add(k); c.setAttribute("aria-pressed", F.cats.has(k)); render(); return; }
+    const l = e.target.closest("#lenses .chip");
+    if (l) { const k = l.dataset.lens; F.lenses.has(k) ? F.lenses.delete(k) : F.lenses.add(k); l.setAttribute("aria-pressed", F.lenses.has(k)); render(); return; }
+    const s = e.target.closest("th button[data-sort]");
+    if (s) { sortDir = sortKey === s.dataset.sort ? -sortDir : 1; sortKey = s.dataset.sort; renderTable(); }
+  });
 
-function chip(i) {
-  return '<a class="chip" data-jump="' + i.id + '" title="' + esc(CAT_LABEL[i.categories[0]]) + '"><span class="dot" style="background:' + CAT_COLOR[i.categories[0]] + '"></span>' + esc(i.name) + (shortlist.has(i.id) ? " ★" : "") + "</a>";
-}
-function renderHoods() {
-  const clusters = (DATA.clusters || []).map(c => {
-    const members = c.ids.map(id => BY_ID[id]).filter(i => i && matches(i));
-    if (!members.length) return "";
-    return '<div class="panel"><h3>' + esc(c.name) + '</h3><p class="muted">' + esc(c.summary || "") + "</p><div>" + members.map(chip).join("") + "</div></div>";
-  }).join("");
-  const byHood = {};
-  ITEMS.filter(i => i.neighborhood && matches(i)).forEach(i => (byHood[i.neighborhood] = byHood[i.neighborhood] || []).push(i));
-  const auto = Object.keys(byHood).sort((a, b) => byHood[b].length - byHood[a].length).map(h =>
-    '<div class="panel"><h3>' + esc(h) + ' <span class="count">' + byHood[h].length + "</span></h3><div>" + byHood[h].sort(tierSort).map(chip).join("") + "</div></div>").join("");
-  $("v-hoods").innerHTML =
-    (clusters ? '<div class="clusters">' + clusters + "</div>" : '<p class="empty">No curated clusters.</p>') +
-    '<details class="auto"><summary>Every item grouped by its neighborhood field</summary><div class="clusters">' + auto + "</div></details>";
-}
-
-let sortKey = "category", sortDir = 1;
-const COLS = [["id", "ID"], ["name", "Name"], ["category", "Category"], ["neighborhood", "Neighborhood"], ["tier", "Tier"],
-              ["cost", "Cost"], ["duration", "Duration"], ["setting", "Setting"], ["booking", "Booking"], ["status", "Status"], ["maps", "Map"]];
-function cell(i, k) {
-  if (k === "category") return CAT_LABEL[i.categories[0]];
-  if (k === "tier") return TIER_ORDER[i.tier] + " " + TIER_LABEL[i.tier];
-  return i[k] || "";
-}
-function renderTable() {
-  const rows = ITEMS.filter(i => i.maps_url && matches(i)).sort((a, b) => String(cell(a, sortKey)).localeCompare(String(cell(b, sortKey))) * sortDir || a.name.localeCompare(b.name));
-  $("v-table").innerHTML = '<p class="muted">Master location database: ' + rows.length + ' places. Same data as <a href="locations.csv">locations.csv</a>.</p>' +
-    '<div class="tablewrap"><table><thead><tr><th></th>' + COLS.map(([k, l]) => '<th data-sort="' + k + '">' + l + (sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : "") + "</th>").join("") + "</tr></thead><tbody>" +
-    rows.map(i => "<tr><td><button class=\"star" + (shortlist.has(i.id) ? " on" : "") + '" data-id="' + esc(i.id) + '">' + (shortlist.has(i.id) ? "★" : "☆") + "</button></td>" +
-      COLS.map(([k]) => k === "maps" ? '<td><a href="' + esc(i.maps_url) + '" target="_blank" rel="noopener">open</a></td>' :
-        k === "name" ? '<td class="nm"><a href="#" data-jump="' + i.id + '">' + esc(i.name) + "</a></td>" :
-        k === "tier" ? "<td>" + TIER_LABEL[i.tier] + "</td>" : "<td>" + esc(cell(i, k)) + "</td>").join("") + "</tr>").join("") +
-    "</tbody></table></div>";
-}
-
-function renderPractical() {
-  const list = (title, arr, extra) => arr.length ? '<div class="panel"><h3>' + title + ' <span class="count">' + arr.length + '</span></h3><ul class="tight">' +
-    arr.map(i => '<li><a href="#" data-jump="' + i.id + '">' + esc(i.name) + "</a>" + (extra(i) ? " · " + esc(extra(i)) : "") + "</li>").join("") + "</ul></div>" : "";
-  const events = ITEMS.filter(i => i.dates && i.dates.start).sort((a, b) => a.dates.start.localeCompare(b.dates.start));
-  const html =
-    list("Events on your dates", events, fmtDates) +
-    list("Booking required", ITEMS.filter(i => i.booking === "required").sort(tierSort), i => i.seasonal || i.verification || "") +
-    list("Booking recommended", ITEMS.filter(i => i.booking === "recommended").sort(tierSort), i => i.seasonal || "") +
-    list("Possibly closed", ITEMS.filter(i => i.status === "possibly-closed"), i => i.verification || "") +
-    list("Unconfirmed", ITEMS.filter(i => i.status === "unconfirmed"), i => i.verification || "") +
-    (DATA.practical || []).map(p => '<div class="panel"><h3>' + esc(p.heading) + '</h3><ul class="tight">' + p.items.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul></div>").join("");
-  $("v-practical").innerHTML = '<div class="overview">' + html + "</div>";
-}
-
-// ---------- tabs & wiring
-const TABS = [["overview", "Overview"], ["catalog", "Catalog"], ["map", "Map"], ["hoods", "Neighborhoods"], ["table", "Table"], ["practical", "Practical"]];
-const RENDER = { overview: renderOverview, catalog: renderCatalog, map: renderMap, hoods: renderHoods, table: renderTable, practical: renderPractical };
-let tab = "overview";
-try { tab = sessionStorage.getItem(STORE_KEY + "-tab") || tab; } catch (e) {}
-function show(t) {
-  tab = t;
-  try { sessionStorage.setItem(STORE_KEY + "-tab", t); } catch (e) {}
-  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
-  document.querySelectorAll("section.view").forEach(s => s.classList.toggle("on", s.id === "v-" + t));
-  $("filters").style.display = (t === "overview" || t === "practical") ? "none" : "";
-  RENDER[t]();
-}
-function render() { RENDER[tab](); }
-function jump(id) {
-  if (tab !== "catalog") show("catalog");
-  let el = $("it-" + id);
-  if (!el) { Object.keys(F).forEach(k => F[k] = k === "short" ? false : ""); syncInputs(); renderCatalog(); el = $("it-" + id); }
-  if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1600); }
-}
-
-const INPUTS = { q: "q", cat: "f-cat", hood: "f-hood", tier: "f-tier", cost: "f-cost", setting: "f-setting", booking: "f-booking", status: "f-status" };
-function syncInputs() { Object.entries(INPUTS).forEach(([k, id]) => $(id).value = F[k]); $("f-short").checked = F.short; }
-
-$("title").textContent = META.destination + " Discovery Guide";
-$("subtitle").textContent = META.destination + ", " + META.country + " · " + META.arrive + " → " + META.depart +
-  " · " + ITEMS.length + " discoveries · researched " + META.generated;
-$("tabs").innerHTML = TABS.map(([k, l]) => '<button data-tab="' + k + '">' + l + "</button>").join("");
-$("f-cat").innerHTML += CATS.map(([k, l]) => '<option value="' + k + '">' + esc(l) + "</option>").join("");
-$("f-hood").innerHTML += [...new Set(ITEMS.map(i => i.neighborhood).filter(Boolean))].sort().map(h => "<option>" + esc(h) + "</option>").join("");
-
-Object.entries(INPUTS).forEach(([k, id]) => $(id).addEventListener("input", e => { F[k] = e.target.value; render(); }));
-$("f-short").addEventListener("change", e => { F.short = e.target.checked; render(); });
-$("reset").addEventListener("click", () => { Object.keys(F).forEach(k => F[k] = k === "short" ? false : ""); syncInputs(); render(); });
-document.addEventListener("click", e => {
-  const star = e.target.closest(".star"); if (star) { toggleStar(star.dataset.id); return; }
-  const j = e.target.closest("[data-jump]"); if (j) { e.preventDefault(); jump(j.dataset.jump); return; }
-  const tb = e.target.closest("nav.tabs button"); if (tb) { show(tb.dataset.tab); return; }
-  const st = e.target.closest(".stat"); if (st) { F.cat = st.dataset.cat; syncInputs(); show("catalog"); return; }
-  const th = e.target.closest("th[data-sort]"); if (th) { sortDir = sortKey === th.dataset.sort ? -sortDir : 1; sortKey = th.dataset.sort; renderTable(); }
-});
-$("export").addEventListener("click", () => {
-  const ids = [...shortlist];
-  const out = { trip: META.slug, destination: META.destination, arrive: META.arrive, depart: META.depart,
-    exported: new Date().toISOString(), ids,
-    items: ids.map(id => ({ id, name: BY_ID[id].name, category: BY_ID[id].categories[0], neighborhood: BY_ID[id].neighborhood || null })) };
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" }));
-  a.download = "selections.json"; a.click(); URL.revokeObjectURL(a.href);
-});
-$("copy").addEventListener("click", e => {
-  const txt = [...shortlist].join("\n");
-  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(
-    () => { e.target.textContent = "Copied!"; setTimeout(() => e.target.textContent = "Copy IDs", 1200); },
-    () => prompt("Shortlisted IDs:", [...shortlist].join(", ")));
-});
-$("clear").addEventListener("click", () => { if (shortlist.size && confirm("Clear all " + shortlist.size + " shortlisted items?")) { shortlist.clear(); saveShort(); render(); } });
-
-saveShort();
-show(TABS.some(t => t[0] === tab) ? tab : "overview");
+  show(tab);
+  if (location.hash.startsWith("#it-")) jump(location.hash.slice(4));
+})();
 </script>
 </body>
 </html>
