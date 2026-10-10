@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --panel-2: #f0eee9; --text: #1d1d1f; --muted: #6b6b70;
+    --line: #e3e1dc; --accent: #2b6cb0; --star: #d69e2e; --warn: #c05621; --bad: #c53030;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318; --panel: #1a1d24; --panel-2: #222631; --text: #e8e9ed; --muted: #9aa0ab;
+      --line: #2b2f39; --accent: #7fb2ff; --star: #f6c453; --warn: #f6ad55; --bad: #fc8181;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+  header.top { padding-top: 28px; padding-bottom: 8px; }
+  h1 { margin: 0; font-size: 1.75rem; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 2px 0 0; }
+  .muted { color: var(--muted); }
+
+  nav.tabs { position: sticky; top: 0; z-index: 1000; background: var(--bg); border-bottom: 1px solid var(--line); }
+  nav.tabs .wrap { display: flex; gap: 4px; overflow-x: auto; padding-top: 8px; }
+  nav.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted);
+                    padding: 8px 12px; font: inherit; cursor: pointer; white-space: nowrap; }
+  nav.tabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0; }
+  .bar input[type=search], .bar select { font: inherit; font-size: 0.875rem; padding: 6px 8px; border-radius: 8px;
+     border: 1px solid var(--line); background: var(--panel); color: var(--text); max-width: 100%; }
+  .bar input[type=search] { flex: 1 1 220px; }
+  .bar label { font-size: 0.875rem; display: flex; gap: 4px; align-items: center; color: var(--muted); }
+  .shortbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.875rem; padding-bottom: 8px; }
+  .btn { font: inherit; font-size: 0.8125rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+         background: var(--panel); color: var(--text); cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .count { color: var(--muted); font-size: 0.875rem; }
+
+  section.view { display: none; padding-bottom: 64px; }
+  section.view.on { display: block; }
+
+  .overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .panel h3 { margin: 0 0 6px; font-size: 1rem; }
+  .panel p, .panel ul { margin: 0; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+          font-size: 0.875rem; cursor: pointer; }
+  .stat b { font-size: 1.1rem; margin-right: 4px; }
+
+  .cat { margin-top: 28px; scroll-margin-top: 60px; }
+  .cat > h2 { font-size: 1.3rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .subcat { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 16px 0 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px;
+          padding: 12px 14px; scroll-margin-top: 70px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .card.flash { outline: 2px solid var(--accent); }
+  .card .head { display: flex; gap: 8px; align-items: flex-start; }
+  .card h4 { margin: 0; font-size: 1rem; line-height: 1.3; }
+  .card .local { color: var(--muted); font-size: 0.85rem; }
+  .card p { margin: 0; font-size: 0.9rem; }
+  .star { background: none; border: 0; cursor: pointer; font-size: 1.15rem; line-height: 1; padding: 0; color: var(--muted); flex: none; }
+  .star.on { color: var(--star); }
+  .head .grow { flex: 1; min-width: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.8rem; color: var(--muted); }
+  .badge { font-size: 0.7rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; color: var(--muted); }
+  .t-iconic { color: var(--star); border-color: var(--star); }
+  .t-strong { color: var(--accent); border-color: var(--accent); }
+  .b-required { color: var(--bad); border-color: var(--bad); }
+  .b-recommended { color: var(--warn); border-color: var(--warn); }
+  .s-unconfirmed { color: var(--warn); border-color: var(--warn); }
+  .s-possibly-closed { color: var(--bad); border-color: var(--bad); }
+  .s-verified { color: #2f855a; border-color: #2f855a; }
+  dl.det { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; margin: 0; font-size: 0.85rem; }
+  dl.det dt { color: var(--muted); }
+  dl.det dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .links { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.8rem; margin-top: auto; padding-top: 4px; }
+  .ver { font-size: 0.8rem; color: var(--muted); }
+  .also { margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; margin: 2px; border-radius: 999px;
+          border: 1px solid var(--line); background: var(--panel); font-size: 0.8rem; color: var(--text); text-decoration: none; cursor: pointer; }
+
+  #map { height: 70vh; min-height: 420px; border-radius: 12px; border: 1px solid var(--line); margin-top: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 0.8rem; margin-top: 8px; }
+  .legend span { display: inline-flex; gap: 4px; align-items: center; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; background: var(--panel); }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { cursor: pointer; white-space: nowrap; background: var(--panel-2); position: sticky; top: 0; }
+  td.nm { min-width: 180px; }
+
+  .clusters { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-top: 16px; }
+  @media (max-width: 400px) { .clusters { grid-template-columns: 1fr; } }
+  details.auto { margin-top: 24px; }
+  details.auto summary { cursor: pointer; font-weight: 600; }
+  ul.tight { padding-left: 18px; margin: 4px 0 0; }
+  ul.tight li { margin: 2px 0; }
+  .empty { color: var(--muted); padding: 24px 0; }
+</style>
+</head>
+<body>
+<header class="top wrap">
+  <h1 id="title"></h1>
+  <p class="sub" id="subtitle"></p>
+</header>
+
+<nav class="tabs"><div class="wrap" id="tabs"></div></nav>
+
+<div class="wrap">
+  <div class="bar" id="filters">
+    <input type="search" id="q" placeholder="Search names, descriptions, neighborhoods…">
+    <select id="f-cat"><option value="">All categories</option></select>
+    <select id="f-hood"><option value="">All neighborhoods</option></select>
+    <select id="f-tier"><option value="">Any tier</option><option value="iconic">Iconic</option><option value="strong">Strong</option><option value="niche">Niche</option></select>
+    <select id="f-cost"><option value="">Any cost</option><option>free</option><option>$</option><option>$$</option><option>$$$</option><option>$$$$</option></select>
+    <select id="f-setting"><option value="">Indoor/outdoor</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option><option value="mixed">Mixed</option></select>
+    <select id="f-booking"><option value="">Any booking</option><option value="required">Booking required</option><option value="recommended">Booking recommended</option><option value="none">No booking</option></select>
+    <select id="f-status"><option value="">Any status</option><option value="verified">Verified</option><option value="reputation">Reputation</option><option value="unconfirmed">Unconfirmed</option><option value="possibly-closed">Possibly closed</option></select>
+    <label><input type="checkbox" id="f-short"> ★ only</label>
+    <button class="btn" id="reset">Reset</button>
+  </div>
+  <div class="shortbar">
+    <span>★ <b id="short-n">0</b> shortlisted</span>
+    <button class="btn" id="export">Export shortlist (selections.json)</button>
+    <button class="btn" id="copy">Copy IDs</button>
+    <button class="btn" id="clear">Clear</button>
+    <span class="count" id="count"></span>
+  </div>
+</div>
+
+<main class="wrap">
+  <section class="view" id="v-overview"></section>
+  <section class="view" id="v-catalog"></section>
+  <section class="view" id="v-map"><div id="map"></div><div class="legend" id="legend"></div><p class="muted" id="map-note"></p></section>
+  <section class="view" id="v-hoods"></section>
+  <section class="view" id="v-table"></section>
+  <section class="view" id="v-practical"></section>
+</main>
+
+<script>
+const DATA = __DATA__;
+
+const CATS = DATA.categories;               // [[key, label], ...]
+const CAT_LABEL = Object.fromEntries(CATS);
+const CAT_COLOR = {
+  food: "#e8590c", restaurants: "#d6336c", products: "#ae3ec9", neighborhoods: "#7048e8",
+  shopping: "#4263eb", photography: "#1c7ed6", attractions: "#0c8599", experiences: "#099268",
+  nature: "#37b24d", nightlife: "#f59f00", events: "#f03e3e", daytrips: "#868e96"
+};
+const TIER_ORDER = { iconic: 0, strong: 1, niche: 2 };
+const TIER_LABEL = { iconic: "Iconic", strong: "Strong", niche: "Niche" };
+const STATUS_LABEL = { verified: "Verified", reputation: "Reputation", unconfirmed: "Unconfirmed", "possibly-closed": "Possibly closed" };
+const ITEMS = DATA.items;
+const BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+const META = DATA.meta;
+const STORE_KEY = "td-shortlist-" + META.slug;
+
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const $ = id => document.getElementById(id);
+
+// ---------- shortlist (per-browser; export to share with the itinerary step)
+let shortlist = new Set();
+try { shortlist = new Set(JSON.parse(localStorage.getItem(STORE_KEY) || "[]").filter(id => BY_ID[id])); } catch (e) {}
+function saveShort() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify([...shortlist])); } catch (e) {}
+  $("short-n").textContent = shortlist.size;
+}
+function toggleStar(id) {
+  shortlist.has(id) ? shortlist.delete(id) : shortlist.add(id);
+  saveShort();
+  document.querySelectorAll('.star[data-id="' + id + '"]').forEach(b => {
+    b.classList.toggle("on", shortlist.has(id)); b.textContent = shortlist.has(id) ? "★" : "☆";
+  });
+  if (F.short) render();
+}
+
+// ---------- filters
+const F = { q: "", cat: "", hood: "", tier: "", cost: "", setting: "", booking: "", status: "", short: false };
+function matches(it, ignoreCat) {
+  if (!ignoreCat && F.cat && !it.categories.includes(F.cat)) return false;
+  if (F.hood && it.neighborhood !== F.hood) return false;
+  for (const k of ["tier", "cost", "setting", "booking", "status"]) if (F[k] && it[k] !== F[k]) return false;
+  if (F.short && !shortlist.has(it.id)) return false;
+  if (F.q) {
+    const hay = [it.name, it.local_name, it.description, it.why, it.neighborhood, it.subcategory, it.seasonal,
+                 JSON.stringify(it.details || {})].join(" ").toLowerCase();
+    if (!F.q.toLowerCase().split(/\s+/).every(w => hay.includes(w))) return false;
+  }
+  return true;
+}
+const tierSort = (a, b) => (TIER_ORDER[a.tier] - TIER_ORDER[b.tier]) || a.name.localeCompare(b.name);
+
+// ---------- card
+function fmtDates(it) {
+  const d = it.dates || {};
+  if (!d.start) return "";
+  return (d.end && d.end !== d.start ? d.start + " → " + d.end : d.start) + (d.note ? " · " + d.note : "");
+}
+function card(it) {
+  const c = CAT_COLOR[it.categories[0]];
+  const meta = [];
+  if (it.neighborhood) meta.push("📍 " + esc(it.neighborhood));
+  if (it.cost) meta.push(esc(it.cost));
+  if (it.duration) meta.push("⏱ " + esc(it.duration));
+  if (it.setting) meta.push(esc(it.setting));
+  if (it.dates) meta.push("📅 " + esc(fmtDates(it)));
+  const badges = ['<span class="badge t-' + it.tier + '">' + TIER_LABEL[it.tier] + "</span>"];
+  if (it.booking && it.booking !== "none") badges.push('<span class="badge b-' + it.booking + '">Booking ' + it.booking + "</span>");
+  if (it.status !== "reputation") badges.push('<span class="badge s-' + it.status + '">' + STATUS_LABEL[it.status] + "</span>");
+  it.categories.slice(1).forEach(k => badges.push('<span class="badge">also: ' + esc(CAT_LABEL[k]) + "</span>"));
+
+  const det = [];
+  if (it.best_time) det.push(["Best time", it.best_time]);
+  if (it.seasonal) det.push(["Your dates", it.seasonal]);
+  Object.entries(it.details || {}).forEach(([k, v]) => det.push([k, v]));
+  let where = "";
+  if ((it.where && it.where.length) || it.where_note) {
+    const links = (it.where || []).map(id => BY_ID[id] ? '<a href="#it-' + id + '" data-jump="' + id + '">' + esc(BY_ID[id].name) + "</a>" : "").join(", ");
+    where = '<p><b>Find it:</b> ' + links + (links && it.where_note ? " · " : "") + esc(it.where_note || "") + "</p>";
+  }
+  const links = [];
+  if (it.maps_url) links.push('<a href="' + esc(it.maps_url) + '" target="_blank" rel="noopener">Google Maps</a>');
+  if (it.website) links.push('<a href="' + esc(it.website) + '" target="_blank" rel="noopener">Website</a>');
+  (it.sources || []).forEach((s, n) => links.push('<a href="' + esc(s.url) + '" target="_blank" rel="noopener" title="' + esc(s.title || s.url) + '">Source ' + (n + 1) + "</a>"));
+  const on = shortlist.has(it.id);
+  return '<article class="card" id="it-' + esc(it.id) + '" style="border-left-color:' + c + '">' +
+    '<div class="head"><button class="star' + (on ? " on" : "") + '" data-id="' + esc(it.id) + '" title="Shortlist">' + (on ? "★" : "☆") + "</button>" +
+    '<div class="grow"><h4>' + esc(it.name) + "</h4>" + (it.local_name ? '<div class="local">' + esc(it.local_name) + "</div>" : "") + "</div></div>" +
+    '<div class="meta">' + badges.join(" ") + "</div>" +
+    (meta.length ? '<div class="meta">' + meta.join(" · ") + "</div>" : "") +
+    "<p>" + esc(it.description) + "</p>" +
+    '<p><b>Why here:</b> ' + esc(it.why) + "</p>" + where +
+    (det.length ? '<dl class="det">' + det.map(([k, v]) => "<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>").join("") + "</dl>" : "") +
+    (it.verification ? '<div class="ver">✓ ' + esc(it.verification) + "</div>" : "") +
+    '<div class="links">' + links.join("") + "</div></article>";
+}
+
+// ---------- views
+function renderOverview() {
+  const coverage = (META.coverage || []).map(c => "<li><b>" + esc(CAT_LABEL[c.category] || c.category) + ":</b> " + esc(c.note) + "</li>").join("");
+  const assumptions = (META.assumptions || []).map(a => "<li>" + esc(a) + "</li>").join("");
+  const t = META.traveler || {};
+  const trav = ["base", "interests", "budget", "pace", "transport"].filter(k => t[k]).map(k => "<li><b>" + k + ":</b> " + esc(Array.isArray(t[k]) ? t[k].join(", ") : t[k]) + "</li>").join("");
+  const stats = CATS.map(([k, label]) => {
+    const n = ITEMS.filter(i => i.categories[0] === k).length;
+    return '<span class="stat" data-cat="' + k + '"><span class="dot" style="background:' + CAT_COLOR[k] + '"></span> <b>' + n + "</b>" + esc(label) + "</span>";
+  }).join("");
+  $("v-overview").innerHTML =
+    '<div class="stats">' + stats + "</div>" +
+    '<div class="overview">' + (DATA.overview || []).map(o => '<div class="panel"><h3>' + esc(o.heading) + "</h3><p>" + esc(o.text) + "</p></div>").join("") +
+    (trav ? '<div class="panel"><h3>Traveler profile</h3><ul class="tight">' + trav + "</ul></div>" : "") +
+    (assumptions ? '<div class="panel"><h3>Assumptions</h3><ul class="tight">' + assumptions + "</ul></div>" : "") +
+    (coverage ? '<div class="panel"><h3>Coverage gaps</h3><ul class="tight">' + coverage + "</ul></div>" : "") +
+    "</div>";
+}
+
+function renderCatalog() {
+  let html = "", shown = 0;
+  CATS.forEach(([k, label]) => {
+    if (F.cat && F.cat !== k) return;
+    const primary = ITEMS.filter(i => i.categories[0] === k && matches(i, true)).sort(tierSort);
+    const also = ITEMS.filter(i => i.categories.indexOf(k) > 0 && matches(i, true)).sort(tierSort);
+    if (!primary.length && !also.length) return;
+    shown += primary.length;
+    html += '<div class="cat" id="cat-' + k + '"><h2><span class="dot" style="background:' + CAT_COLOR[k] + '"></span>' + esc(label) +
+            ' <span class="count">' + primary.length + "</span></h2>";
+    const groups = {};
+    primary.forEach(i => (groups[i.subcategory || ""] = groups[i.subcategory || ""] || []).push(i));
+    Object.keys(groups).sort((a, b) => (a === "") - (b === "") || a.localeCompare(b)).forEach(sub => {
+      if (sub) html += '<div class="subcat">' + esc(sub) + "</div>";
+      else if (Object.keys(groups).length > 1) html += '<div class="subcat">Other</div>';
+      html += '<div class="grid">' + groups[sub].map(card).join("") + "</div>";
+    });
+    if (also.length) html += '<div class="also">Also relevant here: ' + also.map(i => '<a class="chip" data-jump="' + i.id + '"><span class="dot" style="background:' + CAT_COLOR[i.categories[0]] + '"></span>' + esc(i.name) + "</a>").join("") + "</div>";
+    html += "</div>";
+  });
+  $("v-catalog").innerHTML = html || '<p class="empty">Nothing matches these filters.</p>';
+  $("count").textContent = shown + " of " + ITEMS.length + " shown";
+}
+
+let map, layer;
+function renderMap() {
+  if (!window.L) { $("map-note").textContent = "Map library failed to load (offline?). Use the Google Maps links instead."; return; }
+  if (!map) {
+    map = L.map("map");
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+    layer = L.layerGroup().addTo(map);
+    $("legend").innerHTML = CATS.map(([k, l]) => '<span><span class="dot" style="background:' + CAT_COLOR[k] + '"></span>' + esc(l) + "</span>").join("");
+  }
+  layer.clearLayers();
+  const pts = ITEMS.filter(i => i.lat != null && matches(i));
+  pts.forEach(i => {
+    const m = L.circleMarker([i.lat, i.lng], { radius: i.tier === "iconic" ? 8 : 6, color: "#fff", weight: 1.5,
+      fillColor: CAT_COLOR[i.categories[0]], fillOpacity: 0.9 });
+    m.bindPopup("<b>" + esc(i.name) + "</b><br>" + esc(CAT_LABEL[i.categories[0]]) + " · " + TIER_LABEL[i.tier] +
+      (i.neighborhood ? "<br>" + esc(i.neighborhood) : "") + "<br><a href=\"#\" data-jump=\"" + i.id + "\">Show card</a>" +
+      (i.maps_url ? ' · <a href="' + esc(i.maps_url) + '" target="_blank" rel="noopener">Google Maps</a>' : ""));
+    m.addTo(layer);
+  });
+  const mappable = ITEMS.filter(i => i.maps_url && matches(i)).length;
+  $("map-note").textContent = pts.length + " pinned of " + mappable + " mappable matches. Pins come from sources or OpenStreetMap geocoding; trust the Google Maps link if a pin looks off.";
+  setTimeout(() => { map.invalidateSize(); if (pts.length) map.fitBounds(L.latLngBounds(pts.map(i => [i.lat, i.lng])).pad(0.1)); }, 0);
+}
+
+function chip(i) {
+  return '<a class="chip" data-jump="' + i.id + '" title="' + esc(CAT_LABEL[i.categories[0]]) + '"><span class="dot" style="background:' + CAT_COLOR[i.categories[0]] + '"></span>' + esc(i.name) + (shortlist.has(i.id) ? " ★" : "") + "</a>";
+}
+function renderHoods() {
+  const clusters = (DATA.clusters || []).map(c => {
+    const members = c.ids.map(id => BY_ID[id]).filter(i => i && matches(i));
+    if (!members.length) return "";
+    return '<div class="panel"><h3>' + esc(c.name) + '</h3><p class="muted">' + esc(c.summary || "") + "</p><div>" + members.map(chip).join("") + "</div></div>";
+  }).join("");
+  const byHood = {};
+  ITEMS.filter(i => i.neighborhood && matches(i)).forEach(i => (byHood[i.neighborhood] = byHood[i.neighborhood] || []).push(i));
+  const auto = Object.keys(byHood).sort((a, b) => byHood[b].length - byHood[a].length).map(h =>
+    '<div class="panel"><h3>' + esc(h) + ' <span class="count">' + byHood[h].length + "</span></h3><div>" + byHood[h].sort(tierSort).map(chip).join("") + "</div></div>").join("");
+  $("v-hoods").innerHTML =
+    (clusters ? '<div class="clusters">' + clusters + "</div>" : '<p class="empty">No curated clusters.</p>') +
+    '<details class="auto"><summary>Every item grouped by its neighborhood field</summary><div class="clusters">' + auto + "</div></details>";
+}
+
+let sortKey = "category", sortDir = 1;
+const COLS = [["id", "ID"], ["name", "Name"], ["category", "Category"], ["neighborhood", "Neighborhood"], ["tier", "Tier"],
+              ["cost", "Cost"], ["duration", "Duration"], ["setting", "Setting"], ["booking", "Booking"], ["status", "Status"], ["maps", "Map"]];
+function cell(i, k) {
+  if (k === "category") return CAT_LABEL[i.categories[0]];
+  if (k === "tier") return TIER_ORDER[i.tier] + " " + TIER_LABEL[i.tier];
+  return i[k] || "";
+}
+function renderTable() {
+  const rows = ITEMS.filter(i => i.maps_url && matches(i)).sort((a, b) => String(cell(a, sortKey)).localeCompare(String(cell(b, sortKey))) * sortDir || a.name.localeCompare(b.name));
+  $("v-table").innerHTML = '<p class="muted">Master location database: ' + rows.length + ' places. Same data as <a href="locations.csv">locations.csv</a>.</p>' +
+    '<div class="tablewrap"><table><thead><tr><th></th>' + COLS.map(([k, l]) => '<th data-sort="' + k + '">' + l + (sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : "") + "</th>").join("") + "</tr></thead><tbody>" +
+    rows.map(i => "<tr><td><button class=\"star" + (shortlist.has(i.id) ? " on" : "") + '" data-id="' + esc(i.id) + '">' + (shortlist.has(i.id) ? "★" : "☆") + "</button></td>" +
+      COLS.map(([k]) => k === "maps" ? '<td><a href="' + esc(i.maps_url) + '" target="_blank" rel="noopener">open</a></td>' :
+        k === "name" ? '<td class="nm"><a href="#" data-jump="' + i.id + '">' + esc(i.name) + "</a></td>" :
+        k === "tier" ? "<td>" + TIER_LABEL[i.tier] + "</td>" : "<td>" + esc(cell(i, k)) + "</td>").join("") + "</tr>").join("") +
+    "</tbody></table></div>";
+}
+
+function renderPractical() {
+  const list = (title, arr, extra) => arr.length ? '<div class="panel"><h3>' + title + ' <span class="count">' + arr.length + '</span></h3><ul class="tight">' +
+    arr.map(i => '<li><a href="#" data-jump="' + i.id + '">' + esc(i.name) + "</a>" + (extra(i) ? " · " + esc(extra(i)) : "") + "</li>").join("") + "</ul></div>" : "";
+  const events = ITEMS.filter(i => i.dates && i.dates.start).sort((a, b) => a.dates.start.localeCompare(b.dates.start));
+  const html =
+    list("Events on your dates", events, fmtDates) +
+    list("Booking required", ITEMS.filter(i => i.booking === "required").sort(tierSort), i => i.seasonal || i.verification || "") +
+    list("Booking recommended", ITEMS.filter(i => i.booking === "recommended").sort(tierSort), i => i.seasonal || "") +
+    list("Possibly closed", ITEMS.filter(i => i.status === "possibly-closed"), i => i.verification || "") +
+    list("Unconfirmed", ITEMS.filter(i => i.status === "unconfirmed"), i => i.verification || "") +
+    (DATA.practical || []).map(p => '<div class="panel"><h3>' + esc(p.heading) + '</h3><ul class="tight">' + p.items.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul></div>").join("");
+  $("v-practical").innerHTML = '<div class="overview">' + html + "</div>";
+}
+
+// ---------- tabs & wiring
+const TABS = [["overview", "Overview"], ["catalog", "Catalog"], ["map", "Map"], ["hoods", "Neighborhoods"], ["table", "Table"], ["practical", "Practical"]];
+const RENDER = { overview: renderOverview, catalog: renderCatalog, map: renderMap, hoods: renderHoods, table: renderTable, practical: renderPractical };
+let tab = "overview";
+try { tab = sessionStorage.getItem(STORE_KEY + "-tab") || tab; } catch (e) {}
+function show(t) {
+  tab = t;
+  try { sessionStorage.setItem(STORE_KEY + "-tab", t); } catch (e) {}
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  document.querySelectorAll("section.view").forEach(s => s.classList.toggle("on", s.id === "v-" + t));
+  $("filters").style.display = (t === "overview" || t === "practical") ? "none" : "";
+  RENDER[t]();
+}
+function render() { RENDER[tab](); }
+function jump(id) {
+  if (tab !== "catalog") show("catalog");
+  let el = $("it-" + id);
+  if (!el) { Object.keys(F).forEach(k => F[k] = k === "short" ? false : ""); syncInputs(); renderCatalog(); el = $("it-" + id); }
+  if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1600); }
+}
+
+const INPUTS = { q: "q", cat: "f-cat", hood: "f-hood", tier: "f-tier", cost: "f-cost", setting: "f-setting", booking: "f-booking", status: "f-status" };
+function syncInputs() { Object.entries(INPUTS).forEach(([k, id]) => $(id).value = F[k]); $("f-short").checked = F.short; }
+
+$("title").textContent = META.destination + " Discovery Guide";
+$("subtitle").textContent = META.destination + ", " + META.country + " · " + META.arrive + " → " + META.depart +
+  " · " + ITEMS.length + " discoveries · researched " + META.generated;
+$("tabs").innerHTML = TABS.map(([k, l]) => '<button data-tab="' + k + '">' + l + "</button>").join("");
+$("f-cat").innerHTML += CATS.map(([k, l]) => '<option value="' + k + '">' + esc(l) + "</option>").join("");
+$("f-hood").innerHTML += [...new Set(ITEMS.map(i => i.neighborhood).filter(Boolean))].sort().map(h => "<option>" + esc(h) + "</option>").join("");
+
+Object.entries(INPUTS).forEach(([k, id]) => $(id).addEventListener("input", e => { F[k] = e.target.value; render(); }));
+$("f-short").addEventListener("change", e => { F.short = e.target.checked; render(); });
+$("reset").addEventListener("click", () => { Object.keys(F).forEach(k => F[k] = k === "short" ? false : ""); syncInputs(); render(); });
+document.addEventListener("click", e => {
+  const star = e.target.closest(".star"); if (star) { toggleStar(star.dataset.id); return; }
+  const j = e.target.closest("[data-jump]"); if (j) { e.preventDefault(); jump(j.dataset.jump); return; }
+  const tb = e.target.closest("nav.tabs button"); if (tb) { show(tb.dataset.tab); return; }
+  const st = e.target.closest(".stat"); if (st) { F.cat = st.dataset.cat; syncInputs(); show("catalog"); return; }
+  const th = e.target.closest("th[data-sort]"); if (th) { sortDir = sortKey === th.dataset.sort ? -sortDir : 1; sortKey = th.dataset.sort; renderTable(); }
+});
+$("export").addEventListener("click", () => {
+  const ids = [...shortlist];
+  const out = { trip: META.slug, destination: META.destination, arrive: META.arrive, depart: META.depart,
+    exported: new Date().toISOString(), ids,
+    items: ids.map(id => ({ id, name: BY_ID[id].name, category: BY_ID[id].categories[0], neighborhood: BY_ID[id].neighborhood || null })) };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" }));
+  a.download = "selections.json"; a.click(); URL.revokeObjectURL(a.href);
+});
+$("copy").addEventListener("click", e => {
+  const txt = [...shortlist].join("\n");
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(
+    () => { e.target.textContent = "Copied!"; setTimeout(() => e.target.textContent = "Copy IDs", 1200); },
+    () => prompt("Shortlisted IDs:", [...shortlist].join(", ")));
+});
+$("clear").addEventListener("click", () => { if (shortlist.size && confirm("Clear all " + shortlist.size + " shortlisted items?")) { shortlist.clear(); saveShort(); render(); } });
+
+saveShort();
+show(TABS.some(t => t[0] === tab) ? tab : "overview");
+</script>
+</body>
+</html>
