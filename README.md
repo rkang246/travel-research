@@ -56,7 +56,7 @@ python3 scripts/build.py trips/2026-11-tokyo --geocode
 One-time setup, after the first push: in the repo on GitHub, go to **Settings →
 Pages → Build and deployment**, choose **Deploy from a branch**, then select `main` / `/ (root)`.
 Because `rkang246.github.io` uses the custom domain `robertqkang.com`, reports
-are served at `https://robertqkang.com/travel-discovery/trips/<slug>/`. That
+are served at `https://robertqkang.com/travel-research/trips/<slug>/`. That
 base URL is set in [`site.json`](site.json).
 
 > **Privacy:** Pages sites from a public repo are public, and so are the trip

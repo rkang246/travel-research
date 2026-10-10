@@ -29,7 +29,7 @@ in the report, and a separate itinerary step works from that shortlist.
 
 ## Where the output goes
 
-Repo: `/Users/robertkang/Desktop/Code/travel-discovery` (GitHub: `rkang246/travel-discovery`)
+Repo: `/Users/robertkang/Desktop/Code/travel-discovery` (GitHub: `rkang246/travel-research`)
 
 ```
 trips/<YYYY-MM>-<city-slug>/        e.g. trips/2026-11-tokyo/
