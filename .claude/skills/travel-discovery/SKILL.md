@@ -116,6 +116,8 @@ limit before one city is done.
   through patch files. `merge.py` assembles `data.json`, so you never rewrite it.
 
 ### 1. Set up
+Run `git pull --ff-only` in the repo first. Both the Mac and the OpenClaw server
+push to it, so a stale checkout causes conflicting trip data.
 Create `trips/<YYYY-MM>-<city-slug>/work/` (month of arrival). On a refresh,
 `merge.py` folds the existing `data.json` in first, so IDs that persist are kept
 automatically. If `work/` still holds files from an earlier run, move them into
