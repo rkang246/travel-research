@@ -14,7 +14,7 @@ itinerary step works from that.
 <!-- TRIPS:START -->
 | Trip | Dates | Items | Report | Data |
 |---|---|---|---|---|
-| Hong Kong, Hong Kong SAR, China | 2026-12-25 → 2026-12-27 | 194 | [open](https://robertqkang.com/travel-research/trips/2026-12-hong-kong/) | [folder](trips/2026-12-hong-kong/) |
+| Hong Kong, Hong Kong SAR, China | 2026-12-25 → 2026-12-27 | 296 | [open](https://robertqkang.com/travel-research/trips/2026-12-hong-kong/) | [folder](trips/2026-12-hong-kong/) |
 <!-- TRIPS:END -->
 
 The **Report** links open the rendered page on GitHub Pages. If you click an
