@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&amp;family=Barlow+Condensed:wght@500;600;700&amp;family=Noto+Sans+HK:wght@500;700;900&amp;display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 /* Layout: each category is a "line" in its own colour and each discovery is a "stop"
    on it. Single-column list under a sticky filter bar; Map / Neighborhoods / Table /
@@ -366,9 +365,23 @@ const DATA = {"meta": {"destination": "Hong Kong", "country": "Hong Kong SAR, Ch
   function setCount(n) { $("count").textContent = (n == null ? ITEMS.filter(i => matches(i)).length : n) + " shown · " + picks.size + " ★"; }
 
   // ---------- map
-  let map, layer;
+  // Leaflet is loaded on first use, not via a <script> tag in <head>: HTML-preview
+  // proxies (htmlpreview.github.io) don't reliably execute external head scripts.
+  let map, layer, leafletState = "";
   function renderMap() {
-    if (!window.L) { $("map-note").textContent = "The map library didn't load (offline?). Use each place's MAP link instead."; setCount(); return; }
+    if (!window.L) {
+      setCount();
+      if (leafletState === "failed") { $("map-note").textContent = "The map library didn't load (offline?). Use each place's MAP link instead."; return; }
+      if (leafletState === "loading") return;
+      leafletState = "loading";
+      $("map-note").textContent = "Loading map…";
+      const s = document.createElement("script");
+      s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      s.onload = () => { leafletState = "ok"; if (tab === "map") renderMap(); };
+      s.onerror = () => { leafletState = "failed"; if (tab === "map") renderMap(); };
+      document.head.appendChild(s);
+      return;
+    }
     if (!map) {
       map = L.map("map");
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
