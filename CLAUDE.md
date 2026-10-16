@@ -25,5 +25,6 @@ Destination research catalogs, one folder per trip under `trips/`.
 - **Itinerary phase (separate):** reads `data.json` + `selections.json` from
   the trip folder. Discovery research should never prune items for schedule
   reasons.
-- **Publishing:** commit locally. Push only when the user asks, because GitHub Pages
-  makes reports public if the repo is public.
+- **Publishing:** commit locally, and push only when the user asks. Reports are shared as
+  GitHub HTML-preview links (`preview_base` in `site.json` + `/trips/<slug>/index.html`).
+  GitHub Pages stays **off**, because it would publish under robertqkang.com.

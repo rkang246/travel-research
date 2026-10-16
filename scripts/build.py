@@ -441,14 +441,14 @@ def load_trips():
 
 def write_root_index(trips):
     site = json.loads((ROOT / "site.json").read_text()) if (ROOT / "site.json").exists() else {}
-    base = site.get("pages_base", "").rstrip("/")
+    base = site.get("preview_base", "").rstrip("/")
 
     # README trip table (between markers)
     readme = ROOT / "README.md"
     if readme.exists():
         lines = ["| Trip | Dates | Items | Report | Data |", "|---|---|---|---|---|"]
         for t in trips:
-            report = "[open](%s/trips/%s/)" % (base, t["dir"]) if base else "-"
+            report = "[open](%s/trips/%s/index.html)" % (base, t["dir"]) if base else "-"
             lines.append("| %s, %s | %s → %s | %d | %s | [folder](trips/%s/) |" % (
                 t["destination"], t["country"], t["arrive"], t["depart"], t["count"], report, t["dir"]))
         if not trips:
@@ -461,7 +461,7 @@ def write_root_index(trips):
     # Root landing page for GitHub Pages
     e = html.escape
     cards = "\n".join(
-        '<a class="trip" href="trips/%s/"><h2>%s%s</h2><p>%s</p><p class="m">%s → %s · %d discoveries · researched %s</p></a>'
+        '<a class="trip" href="trips/%s/index.html"><h2>%s%s</h2><p>%s</p><p class="m">%s → %s · %d discoveries · researched %s</p></a>'
         % (e(t["dir"]), e(t["destination"]), (" <span class=\"m\">%s</span>" % e(t["local_title"])) if t["local_title"] else "",
            e(t["country"]), e(t["arrive"]), e(t["depart"]), t["count"], e(t["generated"]))
         for t in trips) or '<p class="m">No trips yet.</p>'

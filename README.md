@@ -14,11 +14,12 @@ itinerary step works from that.
 <!-- TRIPS:START -->
 | Trip | Dates | Items | Report | Data |
 |---|---|---|---|---|
-| Hong Kong, Hong Kong SAR, China | 2026-12-25 → 2026-12-27 | 296 | [open](https://robertqkang.com/travel-research/trips/2026-12-hong-kong/) | [folder](trips/2026-12-hong-kong/) |
+| Hong Kong, Hong Kong SAR, China | 2026-12-25 → 2026-12-27 | 296 | [open](https://htmlpreview.github.io/?https://github.com/rkang246/travel-research/blob/main/trips/2026-12-hong-kong/index.html) | [folder](trips/2026-12-hong-kong/) |
 <!-- TRIPS:END -->
 
-The **Report** links open the rendered page on GitHub Pages. If you click an
-`index.html` inside GitHub's file browser instead, you'll only see its source code.
+The **Report** links open the rendered page through GitHub HTML preview
+(htmlpreview.github.io). Clicking an `index.html` in GitHub's file browser
+only shows its source code.
 
 ## Running a research pass
 
@@ -68,17 +69,22 @@ Rebuild after editing a trip's data:
 python3 scripts/build.py trips/2026-11-tokyo --geocode
 ```
 
-## Viewing reports on GitHub Pages
+## Viewing reports
 
-One-time setup, after the first push: in the repo on GitHub, go to **Settings →
-Pages → Build and deployment**, choose **Deploy from a branch**, then select `main` / `/ (root)`.
-Because `rkang246.github.io` uses the custom domain `robertqkang.com`, reports
-are served at `https://robertqkang.com/travel-research/trips/<slug>/`. That
-base URL is set in [`site.json`](site.json).
+Reports are shared as **GitHub HTML preview** links, which render the committed
+`index.html` straight from the repo:
 
-> **Privacy:** Pages sites from a public repo are public, and so are the trip
-> dates in them. Reports only record your base neighborhood, never a hotel. To
-> keep a repo private and still use Pages, you need GitHub Pro. Otherwise, open
+```
+https://htmlpreview.github.io/?https://github.com/rkang246/travel-research/blob/main/trips/<slug>/index.html
+```
+
+GitHub Pages is deliberately **off** for this repo. Turning it on would publish
+the reports under robertqkang.com (the custom domain of `rkang246.github.io`).
+The preview base URL is set in [`site.json`](site.json).
+
+> **Privacy:** preview links only work because the repo is public, so anyone
+> with the repo URL can see the trips and their dates. Reports only record your
+> base neighborhood, never a hotel. To view a report without GitHub, open its
 > `index.html` locally.
 
 ## Importing into Google My Maps

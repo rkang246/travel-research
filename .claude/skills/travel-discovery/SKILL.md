@@ -29,7 +29,12 @@ in the report, and a separate itinerary step works from that shortlist.
 
 ## Where the output goes
 
-Repo: `/Users/robertkang/Desktop/Code/travel-discovery` (GitHub: `rkang246/travel-research`)
+Repo: the git checkout containing this skill (GitHub: `rkang246/travel-research`).
+Find its root from this skill's base directory, following symlinks:
+`cd "$(dirname "$(readlink -f <skill-base>/SKILL.md)")/../../.." && pwd`.
+Usual locations: `~/Desktop/Code/travel-discovery` on the Mac and
+`~/work/travel-research` on the OpenClaw server. Run every command below from
+that root, and give agents **absolute** paths under it.
 
 ```
 trips/<YYYY-MM>-<city-slug>/        e.g. trips/2026-11-tokyo/
@@ -244,8 +249,10 @@ those edits. Commit the trip folder and the regenerated root files locally.
 Then tell the user:
 - item counts per category and any coverage gaps
 - the handful of most time-sensitive things (bookings to make now, events on their dates)
-- the local path to `index.html` and, once pushed, the Pages URL
-  (`pages_base` in `site.json` + `/trips/<slug>/`)
+- the local path to `index.html` and, once pushed, the **preview link**:
+  `preview_base` from `site.json` + `/trips/<slug>/index.html`. Never suggest
+  GitHub Pages; it's deliberately off because it would publish under the user's
+  personal domain.
 - how to shortlist: tap ★ on items in the report. **Copy shortlist** gives
   readable text for a trip sheet. **Export** downloads `selections.json`, which
   goes in `trips/<slug>/` for the itinerary phase.
@@ -348,7 +355,7 @@ places open and close fast, and some are photo ops with nothing behind them.
   say which categories are incomplete in `meta.coverage` instead of presenting
   the research as comprehensive.
 - `meta.traveler.base` holds a neighborhood, not a hotel name or address,
-  because the report may be published on GitHub Pages.
+  because the repo is public.
 
 ## Google Maps
 

@@ -39,12 +39,14 @@ unit of effort**, not on how many pages you read.
 
 ## Writing results
 
+`<repo>` below is the absolute repo path given in your brief.
+
 Append records to your output file as you go, **in batches of about 5**, so that
 nothing is lost if you're stopped early. Write one JSON object per line with a
 quoted heredoc:
 
 ```bash
-cat >> /Users/robertkang/Desktop/Code/travel-discovery/trips/<slug>/work/<file>.jsonl <<'EOF'
+cat >> <repo>/trips/<slug>/work/<file>.jsonl <<'EOF'
 {"id": "...", "name": "...", ...}
 {"id": "...", "name": "...", ...}
 EOF
@@ -53,7 +55,7 @@ EOF
 Then validate it:
 
 ```bash
-python3 /Users/robertkang/Desktop/Code/travel-discovery/scripts/merge.py --check /Users/robertkang/Desktop/Code/travel-discovery/trips/<slug>/work/<file>.jsonl
+python3 <repo>/scripts/merge.py --check <repo>/trips/<slug>/work/<file>.jsonl
 ```
 
 Fix any errors by appending corrected records with the same `id`; the merge
